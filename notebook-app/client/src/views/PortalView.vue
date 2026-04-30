@@ -89,6 +89,7 @@ function onLogout() {
   align-items: center;
   justify-content: space-between;
   padding: 16px 32px;
+  padding-top: calc(16px + env(safe-area-inset-top));
   background: var(--bg-sidebar);
   color: var(--text-sidebar);
 }

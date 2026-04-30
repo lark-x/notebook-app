@@ -113,9 +113,10 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
+  padding-top: calc(8px + env(safe-area-inset-top));
   background: var(--bg-sidebar);
   color: var(--text-sidebar);
-  height: 44px;
+  min-height: 44px;
   flex-shrink: 0;
 }
 
