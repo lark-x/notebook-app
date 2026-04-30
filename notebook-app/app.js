@@ -285,17 +285,16 @@ function getFilteredNotes() {
 
 /**
  * 渲染中间面板的笔记列表
- * 每条笔记显示标题、内容预览（前 80 字）、更新时间和标签
+ * 接收当前页的笔记数组，渲染列表和分页控件
+ * @param {Array} notes - 当前页的笔记数组
  */
-function renderNoteList() {
-  const notes = getFilteredNotes();
-
-  if (notes.length === 0) {
+function renderNoteList(notes) {
+  if (!notes || notes.length === 0) {
     noteList.innerHTML = '<div class="empty-state" style="padding:40px;font-size:13px;">暂无笔记</div>';
     return;
   }
 
-  noteList.innerHTML = notes.map(n => {
+  let html = notes.map(n => {
     const preview = stripHtml(n.content).slice(0, 80);
     const tagsHtml = (n.tags || []).map(t => `<span class="tag">${escHtml(t)}</span>`).join('');
     return `
@@ -309,7 +308,35 @@ function renderNoteList() {
       </div>
     `;
   }).join('');
+
+  // 添加分页控件
+  if (totalPages > 1) {
+    html += `
+      <div class="pagination">
+        <div class="pagination-info">第 ${currentPage}/${totalPages} 页，共 ${totalNotes} 条</div>
+        <div class="pagination-controls">
+          <button class="pagination-btn" onclick="goToPage(1)" ${currentPage === 1 ? 'disabled' : ''} title="首页">«</button>
+          <button class="pagination-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} title="上一页">‹</button>
+          <button class="pagination-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} title="下一页">›</button>
+          <button class="pagination-btn" onclick="goToPage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''} title="末页">»</button>
+        </div>
+      </div>
+    `;
+  }
+
+  noteList.innerHTML = html;
 }
+
+/**
+ * 跳转到指定页码
+ * @param {number} page - 目标页码
+ */
+window.goToPage = async function(page) {
+  if (page < 1 || page > totalPages || page === currentPage) return;
+  currentPage = page;
+  const result = await fetchNotesWithPagination();
+  renderNoteList(result.notes);
+};
 
 // ===== 渲染标签 =====
 
@@ -336,8 +363,9 @@ function selectNotebook(id) {
   currentNotebookId = id;
   const nb = data.notebooks.find(n => n.id === id);
   currentNotebookName.textContent = id === 'all' ? '全部笔记' : (nb ? nb.name : '笔记');
+  resetPagination();
   renderNotebooks();
-  renderNoteList();
+  fetchNotesWithPagination().then(result => renderNoteList(result.notes));
 }
 
 // ===== 选择笔记 =====
@@ -401,7 +429,7 @@ async function createNote() {
   saveData(data);
   if (!useApi) syncToServer(data);
   renderNotebooks();
-  renderNoteList();
+  fetchNotesWithPagination().then(result => renderNoteList(result.notes));
   // 自动选中新笔记并聚焦标题输入框
   selectNote(note.id);
   noteTitle.focus();
@@ -452,6 +480,67 @@ function scheduleSave() {
 function updateWordCount() {
   const text = stripHtml(noteContent.innerHTML);
   wordCount.textContent = `${text.length} 字`;
+}
+
+// ===== 分页状态与辅助函数 =====
+
+// 当前页码（从 1 开始）
+let currentPage = 1;
+// 每页显示的笔记数量
+let pageSize = 15;
+// 当前筛选条件下的笔记总数
+let totalNotes = 0;
+// 总页数
+let totalPages = 0;
+
+/**
+ * 重置分页到第一页
+ * 在切换笔记本或搜索关键词变化时调用
+ */
+function resetPagination() {
+  currentPage = 1;
+}
+
+/**
+ * 计算总页数
+ * @returns {number} 总页数
+ */
+function calcTotalPages() {
+  return Math.max(1, Math.ceil(totalNotes / pageSize));
+}
+
+/**
+ * 获取当前页的笔记数据
+ * API 模式下请求后端分页接口，localStorage 模式下在客户端分页
+ * @returns {Promise<Object>} 包含 notes、total、page、pageSize 的结果对象
+ */
+async function fetchNotesWithPagination() {
+  if (useApi) {
+    try {
+      const params = new URLSearchParams({ page: currentPage, pageSize });
+      if (currentNotebookId !== 'all') params.set('notebookId', currentNotebookId);
+      if (searchQuery) params.set('search', searchQuery);
+      const result = await apiRequest('GET', `/notes?${params.toString()}`);
+      totalNotes = result.total;
+      currentPage = result.page;
+      totalPages = calcTotalPages();
+      return result;
+    } catch (e) {
+      console.warn('API fetch notes failed:', e.message);
+    }
+  }
+  // localStorage 模式：在客户端过滤并分页
+  const allFiltered = getFilteredNotes();
+  totalNotes = allFiltered.length;
+  totalPages = calcTotalPages();
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * pageSize;
+  return {
+    notes: allFiltered.slice(start, start + pageSize),
+    total: totalNotes,
+    page: currentPage,
+    pageSize
+  };
 }
 
 // ===== 模态框 =====
@@ -609,9 +698,11 @@ $('#btn-delete-note').addEventListener('click', () => {
 
 // ===== 事件：搜索 =====
 
-searchInput.addEventListener('input', (e) => {
+searchInput.addEventListener('input', async (e) => {
   searchQuery = e.target.value.trim();
-  renderNoteList();
+  resetPagination();
+  const result = await fetchNotesWithPagination();
+  renderNoteList(result.notes);
 });
 
 // ===== 事件：导出/导入 =====
@@ -1259,7 +1350,8 @@ async function init() {
 
   applyTheme(data.settings?.theme || 'light');
   renderNotebooks();
-  renderNoteList();
+  const initResult = await fetchNotesWithPagination();
+  renderNoteList(initResult.notes);
 
   // 检测 AI API 配置状态
   await checkAiStatus();

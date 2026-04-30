@@ -316,13 +316,41 @@ app.delete('/api/notebooks/:id', (req, res) => {
  * 返回结果按更新时间倒序排列（最新修改的排在最前）
  */
 app.get('/api/notes', (req, res) => {
-  let rows;
+  // 分页参数，默认第 1 页，每页 15 条
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize) || 15));
+  const offset = (page - 1) * pageSize;
+
+  // 动态构建查询条件
+  let where = '';
+  const params = [];
+
   if (req.query.notebookId) {
-    rows = stmts.getNotesByNotebook.all(req.query.notebookId);
-  } else {
-    rows = stmts.getAllNotes.all();
+    where += ' WHERE notebook_id = ?';
+    params.push(req.query.notebookId);
   }
-  res.json(rows.map(rowToNote));
+
+  if (req.query.search) {
+    where += where ? ' AND' : ' WHERE';
+    where += ' (title LIKE ? OR content LIKE ? OR tags LIKE ?)';
+    const q = `%${req.query.search}%`;
+    params.push(q, q, q);
+  }
+
+  // 查询总数
+  const countRow = db.prepare(`SELECT COUNT(*) as total FROM notes${where}`).get(...params);
+  const total = countRow.total;
+
+  // 查询当前页数据
+  const rows = db.prepare(`SELECT * FROM notes${where} ORDER BY updated_at DESC LIMIT ? OFFSET ?`)
+    .all(...params, pageSize, offset);
+
+  res.json({
+    notes: rows.map(rowToNote),
+    total,
+    page,
+    pageSize
+  });
 });
 
 /**
