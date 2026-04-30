@@ -6,8 +6,8 @@
 -->
 
 <template>
-  <!-- 应用根容器，三栏 Grid 布局 -->
-  <div id="app">
+  <!-- 应用根容器，三栏 Grid 布局（id="app" 在 index.html 的挂载点上） -->
+  <div id="app-grid">
     <!-- 左侧边栏：笔记本列表、搜索、操作按钮 -->
     <Sidebar />
 
