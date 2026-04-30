@@ -1,2 +1,5 @@
 node_modules/
 data.json
+*.db
+*.db-wal
+*.db-shm
