@@ -57,7 +57,13 @@ body {
 
 /* 应用根容器：CSS Grid 三栏布局 */
 /* 第一栏 240px（侧边栏），第二栏 280px（笔记列表），第三栏自适应（编辑器） */
+/* 注意：#app 是 index.html 的挂载点（不应设为 grid），#app-grid 是 Vue 组件根元素 */
 #app {
+  height: 100vh;
+  overflow: hidden;
+}
+
+#app-grid {
   display: grid;
   grid-template-columns: 240px 280px 1fr;
   height: 100vh;
@@ -312,6 +318,7 @@ body {
   background: var(--bg-editor);
   min-height: 0;
   overflow: hidden;
+  width: 100%;
 }
 
 /* 未选中笔记时的空状态 */
@@ -328,7 +335,8 @@ body {
 #editor-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 /* 编辑器工具栏 */
