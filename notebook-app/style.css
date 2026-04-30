@@ -71,6 +71,8 @@ body {
   display: flex;
   flex-direction: column;
   border-right: 1px solid rgba(255,255,255,0.06);
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* 侧边栏顶栏：Logo 和新建按钮 */
@@ -207,6 +209,8 @@ body {
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* 面板顶栏 */
@@ -306,6 +310,8 @@ body {
   display: flex;
   flex-direction: column;
   background: var(--bg-editor);
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* 未选中笔记时的空状态 */
