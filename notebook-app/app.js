@@ -841,6 +841,362 @@ window.confirmImport = async function() {
   closeModal();
 };
 
+// ===== AI 创意转化模块 =====
+
+/**
+ * AI 创意转化功能
+ *
+ * 提供基于关键词的文本风格转换、内容扩展和摘要提炼能力。
+ * 使用模拟 AI 响应（setTimeout + 预设模板），可后续对接真实 AI API。
+ *
+ * 主要特性：
+ * - 支持多种转化类型（风格转换、内容扩展、摘要提炼）
+ * - 用户可自定义、增删关键词
+ * - 原文与转化结果对比预览
+ * - 用户可选择采纳或放弃转化结果
+ */
+
+// AI 转化面板的当前状态
+const aiState = {
+  // 当前选中的转化类型
+  currentType: 'style',
+  // 用户自定义关键词列表
+  keywords: ['诗意化', '优美'],
+  // 当前转化结果（null 表示尚未转化）
+  result: null,
+  // 是否正在转化中
+  loading: false
+};
+
+/**
+ * 预设的转化类型配置
+ * 每种类型包含：id、名称、图标、默认关键词、模拟转化函数
+ */
+const AI_TRANSFORM_TYPES = {
+  // 风格转换：改变文本的写作风格
+  style: {
+    name: '风格转换',
+    icon: '🎨',
+    defaultKeywords: ['诗意化', '优美'],
+    // 模拟风格转换：根据关键词为文本添加风格化修饰
+    simulate(text, keywords) {
+      const styleWord = keywords[0] || '优美';
+      const prefix = `【${styleWord}风格】\n\n`;
+      // 将文本按句号分割，为每句添加修饰语
+      const sentences = text.split(/[。！？.!?]/).filter(s => s.trim());
+      const styled = sentences.map(s => {
+        const trimed = s.trim();
+        if (!trimed) return '';
+        // 模拟添加诗意化表达
+        return `「${trimed}」`;
+      }).join('，') + '。';
+      return prefix + styled;
+    }
+  },
+  // 内容扩展：为简短文本补充细节
+  expand: {
+    name: '内容扩展',
+    icon: '📝',
+    defaultKeywords: ['细节', '场景'],
+    simulate(text, keywords) {
+      const focus = keywords[0] || '细节';
+      const lines = text.split('\n').filter(l => l.trim());
+      const expanded = lines.map(line => {
+        const trimed = line.trim();
+        if (!trimed) return '';
+        // 模拟为每行添加扩展描述
+        return `${trimed}\n  → 从${focus}角度展开：这里可以进一步补充关于"${trimed.slice(0, 6)}..."的具体${focus}描写，让读者能够更加身临其境地感受场景氛围。`;
+      }).join('\n\n');
+      return `【内容扩展 - 聚焦${focus}】\n\n${expanded}`;
+    }
+  },
+  // 摘要提炼：将长文精简为核心要点
+  summary: {
+    name: '摘要提炼',
+    icon: '📋',
+    defaultKeywords: ['核心', '精简'],
+    simulate(text, keywords) {
+      const mode = keywords[0] || '核心';
+      // 提取文本的核心句子（取前几句）
+      const sentences = text.split(/[。！？.!?\n]/).filter(s => s.trim().length > 4);
+      const keyPoints = sentences.slice(0, 3).map((s, i) => `${i + 1}. ${s.trim()}`).join('\n');
+      const wordCount = text.length;
+      return `【${mode}摘要】\n\n原文共 ${wordCount} 字，提炼要点如下：\n\n${keyPoints}\n\n📌 关键词：${keywords.join('、')}`;
+    }
+  }
+};
+
+/**
+ * 渲染 AI 创意转化面板
+ * 创建完整的面板 DOM 元素并挂载到页面
+ */
+function renderAiPanel() {
+  // 如果面板已存在则不重复创建
+  if ($('#ai-panel')) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'ai-panel';
+  panel.innerHTML = `
+    <div class="ai-panel">
+      <div class="ai-panel-header">
+        <h3>✨ AI 创意转化</h3>
+        <button class="ai-panel-close" onclick="closeAiPanel()">&times;</button>
+      </div>
+      <div class="ai-panel-body">
+        <!-- 转化类型选择 -->
+        <div class="ai-transform-types">
+          ${Object.entries(AI_TRANSFORM_TYPES).map(([key, type]) => `
+            <button class="ai-type-btn ${aiState.currentType === key ? 'active' : ''}"
+                    data-type="${key}" onclick="selectAiType('${key}')">
+              ${type.icon} ${type.name}
+            </button>
+          `).join('')}
+        </div>
+
+        <!-- 关键词标签区 -->
+        <div class="ai-keywords-section">
+          <label>自定义关键词 <span class="hint">（影响转化效果，可自由增删）</span></label>
+          <div class="ai-keywords-tags" id="ai-keywords-tags">
+            ${aiState.keywords.map(k => `
+              <span class="ai-keyword-tag">
+                ${escHtml(k)}
+                <span class="remove-keyword" onclick="removeAiKeyword('${escHtml(k)}')">&times;</span>
+              </span>
+            `).join('')}
+          </div>
+          <div class="ai-keyword-input-row">
+            <input type="text" class="ai-keyword-input" id="ai-keyword-input"
+                   placeholder="输入关键词后按回车或点击添加" maxlength="20">
+            <button class="ai-keyword-add-btn" onclick="addAiKeyword()">添加</button>
+          </div>
+        </div>
+
+        <!-- 转化按钮 -->
+        <button class="ai-transform-btn" id="ai-transform-btn" onclick="executeAiTransform()">
+          ✨ 开始转化
+        </button>
+
+        <!-- 结果展示区（初始隐藏） -->
+        <div class="ai-result-area" id="ai-result-area" style="display:none;"></div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+
+  // 关键词输入框回车事件
+  const input = $('#ai-keyword-input');
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addAiKeyword();
+    }
+  });
+
+  // 点击面板外部关闭
+  panel.addEventListener('click', (e) => {
+    if (e.target === panel) closeAiPanel();
+  });
+}
+
+/**
+ * 关闭 AI 转化面板
+ */
+window.closeAiPanel = function() {
+  const panel = $('#ai-panel');
+  if (panel) panel.remove();
+  aiState.result = null;
+  aiState.loading = false;
+};
+
+/**
+ * 选择转化类型
+ * 切换类型时更新按钮高亮，并加载该类型的默认关键词
+ * @param {string} type - 转化类型 ID
+ */
+window.selectAiType = function(type) {
+  aiState.currentType = type;
+  aiState.result = null;
+
+  // 更新按钮高亮
+  document.querySelectorAll('.ai-type-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.type === type);
+  });
+
+  // 加载该类型的默认关键词
+  const typeConfig = AI_TRANSFORM_TYPES[type];
+  if (typeConfig) {
+    aiState.keywords = [...typeConfig.defaultKeywords];
+    renderAiKeywords();
+  }
+
+  // 清空结果区
+  const resultArea = $('#ai-result-area');
+  if (resultArea) {
+    resultArea.style.display = 'none';
+    resultArea.innerHTML = '';
+  }
+};
+
+/**
+ * 渲染关键词标签列表
+ */
+function renderAiKeywords() {
+  const container = $('#ai-keywords-tags');
+  if (!container) return;
+
+  container.innerHTML = aiState.keywords.map(k => `
+    <span class="ai-keyword-tag">
+      ${escHtml(k)}
+      <span class="remove-keyword" onclick="removeAiKeyword('${escHtml(k)}')">&times;</span>
+    </span>
+  `).join('');
+}
+
+/**
+ * 添加关键词
+ * 从输入框读取关键词，去重后添加到列表
+ */
+window.addAiKeyword = function() {
+  const input = $('#ai-keyword-input');
+  if (!input) return;
+
+  const keyword = input.value.trim();
+  if (!keyword) return;
+
+  // 避免重复添加
+  if (aiState.keywords.includes(keyword)) {
+    input.value = '';
+    return;
+  }
+
+  // 最多 8 个关键词
+  if (aiState.keywords.length >= 8) return;
+
+  aiState.keywords.push(keyword);
+  input.value = '';
+  renderAiKeywords();
+};
+
+/**
+ * 移除指定关键词
+ * @param {string} keyword - 要移除的关键词
+ */
+window.removeAiKeyword = function(keyword) {
+  aiState.keywords = aiState.keywords.filter(k => k !== keyword);
+  renderAiKeywords();
+};
+
+/**
+ * 执行 AI 转化
+ * 获取当前笔记内容，根据选中的类型和关键词进行模拟转化，
+ * 然后展示原文与转化结果的对比
+ */
+window.executeAiTransform = async function() {
+  // 检查是否有选中的笔记
+  const note = data.notes.find(n => n.id === currentNoteId);
+  if (!note) return;
+
+  // 获取纯文本内容
+  const originalText = stripHtml(note.content).trim();
+  if (!originalText) {
+    alert('笔记内容为空，请先输入一些内容再进行转化。');
+    return;
+  }
+
+  // 防止重复触发
+  if (aiState.loading) return;
+  aiState.loading = true;
+
+  // 更新按钮状态
+  const btn = $('#ai-transform-btn');
+  btn.disabled = true;
+  btn.textContent = '正在转化中...';
+
+  // 显示加载动画
+  const resultArea = $('#ai-result-area');
+  resultArea.style.display = 'block';
+  resultArea.innerHTML = `
+    <div class="ai-loading">
+      <span>AI 正在思考中</span>
+      <span class="ai-loading-dots"><span></span><span></span><span></span></span>
+    </div>
+  `;
+
+  // 模拟 AI 处理延迟（800ms ~ 1500ms）
+  const delay = 800 + Math.random() * 700;
+  await new Promise(resolve => setTimeout(resolve, delay));
+
+  // 调用对应类型的模拟转化函数
+  const typeConfig = AI_TRANSFORM_TYPES[aiState.currentType];
+  const result = typeConfig.simulate(originalText, aiState.keywords);
+  aiState.result = result;
+
+  // 渲染对比结果
+  resultArea.innerHTML = `
+    <div class="ai-compare">
+      <div class="ai-compare-box">
+        <div class="ai-compare-label">📄 原文</div>
+        <div class="ai-compare-content">${escHtml(originalText)}</div>
+      </div>
+      <div class="ai-compare-box">
+        <div class="ai-compare-label">✨ ${typeConfig.name}结果</div>
+        <div class="ai-compare-content">${escHtml(result)}</div>
+      </div>
+    </div>
+    <div class="ai-result-actions">
+      <button onclick="closeAiPanel()">放弃</button>
+      <button class="btn-accept" onclick="acceptAiResult()">采纳结果</button>
+    </div>
+  `;
+
+  // 恢复按钮状态
+  btn.disabled = false;
+  btn.textContent = '✨ 开始转化';
+  aiState.loading = false;
+};
+
+/**
+ * 采纳 AI 转化结果
+ * 将转化后的文本替换当前笔记的内容
+ */
+window.acceptAiResult = function() {
+  if (!aiState.result) return;
+
+  const note = data.notes.find(n => n.id === currentNoteId);
+  if (!note) return;
+
+  // 将转化结果转为 HTML（保留换行）
+  const resultHtml = aiState.result
+    .split('\n')
+    .map(line => escHtml(line) || '<br>')
+    .join('<br>');
+
+  // 替换笔记内容
+  note.content = resultHtml;
+  noteContent.innerHTML = resultHtml;
+  note.updatedAt = Date.now();
+
+  // 保存并更新界面
+  saveData(data);
+  if (useApi) {
+    apiRequest('PUT', `/notes/${note.id}`, { content: resultHtml }).catch(() => {});
+  }
+
+  scheduleSave();
+  updateWordCount();
+  closeAiPanel();
+};
+
+// AI 创意转化按钮点击事件
+$('#btn-ai-transform').addEventListener('click', () => {
+  if (!currentNoteId) {
+    alert('请先选择或创建一条笔记。');
+    return;
+  }
+  renderAiPanel();
+});
+
 // ===== 键盘快捷键 =====
 
 document.addEventListener('keydown', (e) => {
