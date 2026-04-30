@@ -3,7 +3,11 @@
  *
  * 基于 Express + better-sqlite3 实现的 REST API 服务端。
  * 提供笔记本、笔记、设置的 CRUD 接口，数据持久化到 SQLite 数据库。
+ * 集成 OpenAI 兼容 API，提供 AI 创意转化能力。
  */
+
+// 加载 .env 文件中的环境变量（必须在其他 require 之前）
+require('dotenv').config();
 
 const express = require('express');
 const Database = require('better-sqlite3');
@@ -399,6 +403,139 @@ app.delete('/api/notes/:id', (req, res) => {
     console.error('Delete note failed:', e.message);
     res.status(500).json({ error: 'Failed to delete note' });
   }
+});
+
+// ===== AI 创意转化路由 =====
+
+/**
+ * AI 转化类型对应的系统提示词
+ * 每种类型定义了 AI 的角色和任务描述
+ */
+const AI_PROMPTS = {
+  style: (keywords) => `你是一位文学风格转换专家。请将用户提供的文本改写为以下风格：${keywords.join('、')}。
+要求：
+1. 保持原文的核心含义不变
+2. 自然地融入指定的风格特征
+3. 输出纯文本，不要添加额外的标题或说明`,
+
+  expand: (keywords) => `你是一位内容创作专家。请根据以下方向对用户提供的文本进行扩展丰富：${keywords.join('、')}。
+要求：
+1. 基于原文内容进行合理扩展，不要编造与原文无关的内容
+2. 补充具体的细节、场景描写或论证
+3. 保持与原文一致的语气和风格
+4. 输出纯文本，不要添加额外的标题或说明`,
+
+  summary: (keywords) => `你是一位文本分析专家。请对用户提供的文本进行摘要提炼，重点关注：${keywords.join('、')}。
+要求：
+1. 提取文本的核心要点
+2. 用简洁清晰的语言重新组织
+3. 保留关键信息，去除冗余表达
+4. 输出纯文本，不要添加额外的标题或说明`
+};
+
+/**
+ * POST /api/ai-transform - AI 创意转化
+ *
+ * 接收笔记内容、转化类型和关键词，调用 OpenAI 兼容 API 进行内容转化。
+ *
+ * 请求体：
+ *   { content: string, type: 'style'|'expand'|'summary', keywords?: string[] }
+ *
+ * 响应：
+ *   { result: string } - 转化后的文本
+ *   { error: string }  - 错误信息
+ */
+app.post('/api/ai-transform', async (req, res) => {
+  const { content, type, keywords = [] } = req.body;
+
+  // 参数校验
+  if (!content || !content.trim()) {
+    return res.status(400).json({ error: '笔记内容不能为空' });
+  }
+  if (!type || !AI_PROMPTS[type]) {
+    return res.status(400).json({ error: '无效的转化类型，支持：style、expand、summary' });
+  }
+
+  // 检查 AI API 配置
+  const apiKey = process.env.AI_API_KEY;
+  const apiBase = (process.env.AI_API_BASE || 'https://api.openai.com/v1').replace(/\/+$/, '');
+  const model = process.env.AI_MODEL || 'gpt-3.5-turbo';
+
+  if (!apiKey) {
+    return res.status(503).json({
+      error: 'AI API 未配置，请在 .env 文件中设置 AI_API_KEY',
+      notConfigured: true
+    });
+  }
+
+  // 构建请求
+  const systemPrompt = AI_PROMPTS[type](keywords.length > 0 ? keywords : ['通用']);
+  const url = `${apiBase}/chat/completions`;
+
+  const body = {
+    model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: content }
+    ],
+    temperature: 0.7,
+    max_tokens: 2000
+  };
+
+  try {
+    // 使用 AbortController 实现 30 秒超时
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error('AI API error:', response.status, errorBody);
+      return res.status(502).json({
+        error: `AI API 请求失败 (${response.status})，请检查 API 配置`
+      });
+    }
+
+    const data = await response.json();
+    const result = data.choices?.[0]?.message?.content?.trim();
+
+    if (!result) {
+      return res.status(502).json({ error: 'AI 返回结果为空，请重试' });
+    }
+
+    res.json({ result });
+
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      return res.status(504).json({ error: 'AI 请求超时（30秒），请稍后重试' });
+    }
+    console.error('AI transform failed:', e.message);
+    res.status(500).json({ error: 'AI 转化失败：' + e.message });
+  }
+});
+
+/**
+ * GET /api/ai-status - 检查 AI API 配置状态
+ * 前端用来判断 AI 功能是否可用
+ */
+app.get('/api/ai-status', (req, res) => {
+  const configured = !!process.env.AI_API_KEY;
+  res.json({
+    configured,
+    model: configured ? (process.env.AI_MODEL || 'gpt-3.5-turbo') : null,
+    base: configured ? (process.env.AI_API_BASE || 'https://api.openai.com/v1') : null
+  });
 });
 
 // ===== 启动服务 =====

@@ -830,6 +830,34 @@ body {
   white-space: pre-wrap;
 }
 
+/* AI 未配置提示 */
+.ai-not-configured {
+  margin-bottom: 12px;
+  padding: 12px 16px;
+  background: #fff3bf;
+  border: 1px solid #ffe066;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #e67700;
+}
+
+.ai-not-configured p {
+  margin: 4px 0;
+}
+
+.ai-not-configured code {
+  background: rgba(0,0,0,0.06);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+[data-theme="dark"] .ai-not-configured {
+  background: #3d2e00;
+  border-color: #665200;
+  color: #ffc107;
+}
+
 /* 结果操作按钮 */
 .ai-result-actions {
   display: flex;

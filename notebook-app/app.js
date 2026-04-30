@@ -847,13 +847,14 @@ window.confirmImport = async function() {
  * AI 创意转化功能
  *
  * 提供基于关键词的文本风格转换、内容扩展和摘要提炼能力。
- * 使用模拟 AI 响应（setTimeout + 预设模板），可后续对接真实 AI API。
+ * 通过后端 /api/ai-transform 接口调用真实的 OpenAI 兼容 API。
  *
  * 主要特性：
  * - 支持多种转化类型（风格转换、内容扩展、摘要提炼）
  * - 用户可自定义、增删关键词
  * - 原文与转化结果对比预览
  * - 用户可选择采纳或放弃转化结果
+ * - AI API 未配置时显示友好提示
  */
 
 // AI 转化面板的当前状态
@@ -865,66 +866,49 @@ const aiState = {
   // 当前转化结果（null 表示尚未转化）
   result: null,
   // 是否正在转化中
-  loading: false
+  loading: false,
+  // AI API 是否已配置（启动时检测）
+  apiConfigured: true
 };
 
 /**
  * 预设的转化类型配置
- * 每种类型包含：id、名称、图标、默认关键词、模拟转化函数
+ * 每种类型包含：id、名称、图标、默认关键词
  */
 const AI_TRANSFORM_TYPES = {
-  // 风格转换：改变文本的写作风格
   style: {
     name: '风格转换',
     icon: '🎨',
-    defaultKeywords: ['诗意化', '优美'],
-    // 模拟风格转换：根据关键词为文本添加风格化修饰
-    simulate(text, keywords) {
-      const styleWord = keywords[0] || '优美';
-      const prefix = `【${styleWord}风格】\n\n`;
-      // 将文本按句号分割，为每句添加修饰语
-      const sentences = text.split(/[。！？.!?]/).filter(s => s.trim());
-      const styled = sentences.map(s => {
-        const trimed = s.trim();
-        if (!trimed) return '';
-        // 模拟添加诗意化表达
-        return `「${trimed}」`;
-      }).join('，') + '。';
-      return prefix + styled;
-    }
+    defaultKeywords: ['诗意化', '优美']
   },
-  // 内容扩展：为简短文本补充细节
   expand: {
     name: '内容扩展',
     icon: '📝',
-    defaultKeywords: ['细节', '场景'],
-    simulate(text, keywords) {
-      const focus = keywords[0] || '细节';
-      const lines = text.split('\n').filter(l => l.trim());
-      const expanded = lines.map(line => {
-        const trimed = line.trim();
-        if (!trimed) return '';
-        // 模拟为每行添加扩展描述
-        return `${trimed}\n  → 从${focus}角度展开：这里可以进一步补充关于"${trimed.slice(0, 6)}..."的具体${focus}描写，让读者能够更加身临其境地感受场景氛围。`;
-      }).join('\n\n');
-      return `【内容扩展 - 聚焦${focus}】\n\n${expanded}`;
-    }
+    defaultKeywords: ['细节', '场景']
   },
-  // 摘要提炼：将长文精简为核心要点
   summary: {
     name: '摘要提炼',
     icon: '📋',
-    defaultKeywords: ['核心', '精简'],
-    simulate(text, keywords) {
-      const mode = keywords[0] || '核心';
-      // 提取文本的核心句子（取前几句）
-      const sentences = text.split(/[。！？.!?\n]/).filter(s => s.trim().length > 4);
-      const keyPoints = sentences.slice(0, 3).map((s, i) => `${i + 1}. ${s.trim()}`).join('\n');
-      const wordCount = text.length;
-      return `【${mode}摘要】\n\n原文共 ${wordCount} 字，提炼要点如下：\n\n${keyPoints}\n\n📌 关键词：${keywords.join('、')}`;
-    }
+    defaultKeywords: ['核心', '精简']
   }
 };
+
+/**
+ * 检测后端 AI API 配置状态
+ * 向 /api/ai-status 发起请求，判断 AI 功能是否可用
+ */
+async function checkAiStatus() {
+  if (!useApi) {
+    aiState.apiConfigured = false;
+    return;
+  }
+  try {
+    const status = await apiRequest('GET', '/ai-status');
+    aiState.apiConfigured = status.configured;
+  } catch (e) {
+    aiState.apiConfigured = false;
+  }
+}
 
 /**
  * 渲染 AI 创意转化面板
@@ -969,6 +953,13 @@ function renderAiPanel() {
                    placeholder="输入关键词后按回车或点击添加" maxlength="20">
             <button class="ai-keyword-add-btn" onclick="addAiKeyword()">添加</button>
           </div>
+        </div>
+
+        <!-- AI 未配置提示（初始隐藏） -->
+        <div class="ai-not-configured" id="ai-not-configured" style="display:${aiState.apiConfigured ? 'none' : 'block'};">
+          <p>⚠️ AI API 未配置</p>
+          <p>请在项目根目录的 <code>.env</code> 文件中设置 <code>AI_API_KEY</code></p>
+          <p>支持 OpenAI、DeepSeek、Qwen 等 OpenAI 兼容接口</p>
         </div>
 
         <!-- 转化按钮 -->
@@ -1089,10 +1080,16 @@ window.removeAiKeyword = function(keyword) {
 
 /**
  * 执行 AI 转化
- * 获取当前笔记内容，根据选中的类型和关键词进行模拟转化，
+ * 获取当前笔记内容，调用后端 /api/ai-transform 接口进行真实 AI 转化，
  * 然后展示原文与转化结果的对比
  */
 window.executeAiTransform = async function() {
+  // 检查 AI API 是否已配置
+  if (!aiState.apiConfigured) {
+    alert('AI API 未配置。请在项目根目录的 .env 文件中设置 AI_API_KEY。\n\n支持 OpenAI、DeepSeek、Qwen 等 OpenAI 兼容接口。');
+    return;
+  }
+
   // 检查是否有选中的笔记
   const note = data.notes.find(n => n.id === currentNoteId);
   if (!note) return;
@@ -1123,32 +1120,52 @@ window.executeAiTransform = async function() {
     </div>
   `;
 
-  // 模拟 AI 处理延迟（800ms ~ 1500ms）
-  const delay = 800 + Math.random() * 700;
-  await new Promise(resolve => setTimeout(resolve, delay));
+  try {
+    // 调用后端 AI 转化接口
+    const response = await apiRequest('POST', '/ai-transform', {
+      content: originalText,
+      type: aiState.currentType,
+      keywords: aiState.keywords
+    });
 
-  // 调用对应类型的模拟转化函数
-  const typeConfig = AI_TRANSFORM_TYPES[aiState.currentType];
-  const result = typeConfig.simulate(originalText, aiState.keywords);
-  aiState.result = result;
+    aiState.result = response.result;
 
-  // 渲染对比结果
-  resultArea.innerHTML = `
-    <div class="ai-compare">
-      <div class="ai-compare-box">
-        <div class="ai-compare-label">📄 原文</div>
-        <div class="ai-compare-content">${escHtml(originalText)}</div>
+    // 获取当前类型的中文名称
+    const typeName = AI_TRANSFORM_TYPES[aiState.currentType]?.name || '转化';
+
+    // 渲染对比结果
+    resultArea.innerHTML = `
+      <div class="ai-compare">
+        <div class="ai-compare-box">
+          <div class="ai-compare-label">📄 原文</div>
+          <div class="ai-compare-content">${escHtml(originalText)}</div>
+        </div>
+        <div class="ai-compare-box">
+          <div class="ai-compare-label">✨ ${typeName}结果</div>
+          <div class="ai-compare-content">${escHtml(response.result)}</div>
+        </div>
       </div>
-      <div class="ai-compare-box">
-        <div class="ai-compare-label">✨ ${typeConfig.name}结果</div>
-        <div class="ai-compare-content">${escHtml(result)}</div>
+      <div class="ai-result-actions">
+        <button onclick="closeAiPanel()">放弃</button>
+        <button class="btn-accept" onclick="acceptAiResult()">采纳结果</button>
       </div>
-    </div>
-    <div class="ai-result-actions">
-      <button onclick="closeAiPanel()">放弃</button>
-      <button class="btn-accept" onclick="acceptAiResult()">采纳结果</button>
-    </div>
-  `;
+    `;
+
+  } catch (e) {
+    // 显示错误信息
+    const errorMsg = e.message || '转化失败，请重试';
+    resultArea.innerHTML = `
+      <div style="padding:16px;text-align:center;color:var(--danger);">
+        <p style="margin-bottom:8px;">转化失败</p>
+        <p style="font-size:13px;color:var(--text-secondary);">${escHtml(errorMsg)}</p>
+      </div>
+    `;
+
+    // 如果是 API 未配置错误，更新状态
+    if (errorMsg.includes('未配置') || errorMsg.includes('notConfigured')) {
+      aiState.apiConfigured = false;
+    }
+  }
 
   // 恢复按钮状态
   btn.disabled = false;
@@ -1243,6 +1260,9 @@ async function init() {
   applyTheme(data.settings?.theme || 'light');
   renderNotebooks();
   renderNoteList();
+
+  // 检测 AI API 配置状态
+  await checkAiStatus();
 
   // 在页面右下角显示当前存储模式（3 秒后自动消失）
   const indicator = document.createElement('div');

@@ -3,3 +3,4 @@ data.json
 *.db
 *.db-wal
 *.db-shm
+.env
