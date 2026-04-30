@@ -1,11 +1,14 @@
 {
   "name": "noteflow",
-  "version": "1.0.0",
-  "description": "NoteFlow - Cross-platform notebook application with persistent storage",
-  "main": "server.js",
+  "version": "3.0.0",
+  "description": "NoteFlow - 跨平台笔记本应用（Vue 3 + Express + SQLite）",
+  "main": "server/index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "build": "cd client && npm run build",
+    "dev:client": "cd client && npm run dev",
+    "install:all": "npm install && cd client && npm install"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",

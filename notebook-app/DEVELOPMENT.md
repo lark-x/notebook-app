@@ -12,14 +12,14 @@
 
 ### 1.2 文件头注释
 
-每个 `.js` 文件必须以 JSDoc 格式的文件头注释开头，说明文件的功能用途：
+每个 `.js` / `.vue` 文件必须以 JSDoc 格式的文件头注释开头，说明文件的功能用途：
 
 ```javascript
 /**
- * NoteFlow 后端服务
+ * NoteFlow 数据库模块
  *
- * 基于 Express + better-sqlite3 实现的 REST API 服务端。
- * 提供笔记本、笔记、设置的 CRUD 接口，数据持久化到 SQLite 数据库。
+ * 负责 SQLite 数据库的初始化、表结构创建、
+ * 预编译 SQL 语句的注册，以及工具函数的导出。
  */
 ```
 
@@ -81,9 +81,9 @@ CREATE TABLE IF NOT EXISTS notes (
 );
 ```
 
-### 1.7 HTML 注释
+### 1.7 HTML / Vue 模板注释
 
-HTML 中的结构区块必须添加注释说明：
+HTML 和 Vue 模板中的结构区块必须添加注释说明：
 
 ```html
 <!-- ===== 左侧边栏：笔记本列表、搜索、操作按钮 ===== -->
@@ -118,7 +118,7 @@ CSS 中使用区块注释和行内注释说明样式用途：
 
 ## 二、代码风格
 
-### 2.1 JavaScript
+### 2.1 JavaScript / Vue
 
 - 使用 2 空格缩进
 - 字符串优先使用单引号 `'`
@@ -126,6 +126,7 @@ CSS 中使用区块注释和行内注释说明样式用途：
 - 使用 `const`/`let`，禁止使用 `var`
 - 函数命名使用 camelCase
 - 常量命名使用 UPPER_SNAKE_CASE
+- Vue 组件使用 Composition API（`<script setup>`）
 
 ### 2.2 HTML
 
@@ -164,23 +165,44 @@ CSS 中使用区块注释和行内注释说明样式用途：
 | `test` | 测试相关 |
 | `chore` | 构建/工具链变更 |
 
-### 3.3 示例
-
-```
-feat(pagination): 添加笔记列表分页功能
-
-- 后端 GET /api/notes 支持 page/pageSize/search 参数
-- 前端新增分页控件，每页 15 条
-- 切换笔记本或搜索时自动重置到第一页
-```
-
 ---
 
-## 四、分支与协作
+## 四、项目结构
 
-- `master` 分支为主分支，保持可运行状态
-- 新功能从 `master` 创建功能分支，完成后合并回 `master`
-- 每次提交前确保代码可正常运行
+```
+notebook-app/
+├── server/                     # 后端模块
+│   ├── index.js               # 入口：Express 配置、路由注册、静态文件托管
+│   ├── db.js                  # 数据库：SQLite 初始化、表结构、预编译语句
+│   └── routes.js              # 路由：所有 RESTful API 端点
+├── client/                     # 前端 Vue 3 应用
+│   ├── index.html             # HTML 入口
+│   ├── package.json           # 前端依赖（vue、vite）
+│   ├── vite.config.js         # Vite 构建配置 + 开发代理
+│   ├── src/
+│   │   ├── main.js            # Vue 应用入口
+│   │   ├── App.vue            # 根组件（三栏布局）
+│   │   ├── style.css          # 全局样式
+│   │   ├── components/        # Vue 组件
+│   │   │   ├── Sidebar.vue    # 侧边栏（笔记本列表、搜索、操作）
+│   │   │   ├── NoteList.vue   # 笔记列表 + 分页控件
+│   │   │   ├── Editor.vue     # 富文本编辑器 + 工具栏
+│   │   │   └── AiPanel.vue    # AI 创意转化面板
+│   │   ├── composables/       # 组合式函数（状态管理 + 业务逻辑）
+│   │   │   ├── useNotebooks.js # 笔记本 CRUD
+│   │   │   ├── useNotes.js    # 笔记 CRUD + 分页 + 自动保存
+│   │   │   ├── useAi.js       # AI 创意转化
+│   │   │   └── useSettings.js # 主题、导入导出
+│   │   └── utils/             # 工具函数
+│   │       ├── api.js         # API 请求封装
+│   │       └── helpers.js     # 通用工具函数
+│   └── dist/                  # 构建产物（git 忽略）
+├── package.json               # 后端依赖 + 脚本
+├── .env.example               # 环境变量模板
+├── .gitignore
+├── DEVELOPMENT.md             # 本文件
+└── migration-report.md        # 迁移报告
+```
 
 ---
 
@@ -189,6 +211,50 @@ feat(pagination): 添加笔记列表分页功能
 | 层级 | 技术 |
 |------|------|
 | 后端 | Node.js + Express + better-sqlite3 |
-| 前端 | 原生 HTML + CSS + JavaScript（无框架） |
+| 前端 | Vue 3 (Composition API) + Vite |
 | 数据库 | SQLite（WAL 模式） |
 | AI 集成 | OpenAI 兼容 API（支持 DeepSeek、Qwen 等） |
+
+---
+
+## 六、启动与部署
+
+### 6.1 开发模式
+
+```bash
+# 安装依赖
+npm run install:all
+
+# 启动后端（端口 3000）
+npm run dev
+
+# 新终端：启动前端开发服务器（端口 5173，自动代理 /api 到后端）
+npm run dev:client
+```
+
+### 6.2 生产构建
+
+```bash
+# 构建前端
+npm run build
+
+# 启动服务（同时提供 API 和静态文件）
+npm start
+```
+
+### 6.3 环境变量
+
+复制 `.env.example` 为 `.env`，配置 AI API 密钥：
+
+```bash
+cp .env.example .env
+# 编辑 .env 设置 AI_API_KEY
+```
+
+---
+
+## 七、分支与协作
+
+- `master` 分支为主分支，保持可运行状态
+- 新功能从 `master` 创建功能分支，完成后合并回 `master`
+- 每次提交前确保代码可正常运行
