@@ -12,6 +12,7 @@ import { ref, watch } from 'vue';
 import { apiRequest } from '../utils/api.js';
 import { genId } from '../utils/helpers.js';
 import { currentNotebookId } from './useNotebooks.js';
+import { closeAllDrawers } from './useMobile.js';
 
 // ===== 分页状态 =====
 
@@ -109,6 +110,8 @@ export function selectNote(id) {
   const note = notes.value.find(n => n.id === id);
   if (!note) return null;
   currentNoteId.value = id;
+  // 移动端下选中笔记后自动关闭抽屉
+  closeAllDrawers();
   return note;
 }
 

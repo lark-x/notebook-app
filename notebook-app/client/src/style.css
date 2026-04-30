@@ -948,22 +948,57 @@ body {
 
 /* 屏幕宽度 ≤ 900px 时切换单栏布局 */
 @media (max-width: 900px) {
-  #app {
+  /* Grid 改为单栏，编辑器占满全宽 */
+  #app-grid {
     grid-template-columns: 1fr;
+    grid-template-rows: 44px 1fr;
+    height: 100vh;
   }
-  /* 侧边栏和笔记列表变为抽屉式覆盖层 */
+
+  /* 移动端顶部导航栏占满第一行 */
+  .mobile-nav {
+    grid-column: 1 / -1;
+  }
+
+  /* 编辑器占满剩余空间 */
+  #editor-panel {
+    grid-column: 1 / -1;
+    grid-row: 2 / -1;
+  }
+
+  /* 侧边栏和笔记列表默认隐藏（抽屉式） */
   #sidebar, #note-list-panel {
     position: fixed;
     top: 0;
     bottom: 0;
-    z-index: 100;
+    z-index: 101;
     transform: translateX(-100%);
     transition: transform 0.3s ease;
+    width: 280px;
   }
+
+  /* 笔记列表宽度稍宽 */
+  #note-list-panel {
+    width: 300px;
+    left: 0;
+  }
+
   /* 通过 .open 类控制抽屉展开 */
-  #sidebar.open { transform: translateX(0); width: 280px; }
-  #note-list-panel.open { transform: translateX(0); left: 0; width: 300px; }
+  #sidebar.open {
+    transform: translateX(0);
+    left: 0;
+  }
+
+  #note-list-panel.open {
+    transform: translateX(0);
+  }
+
   /* 编辑器内边距缩小 */
   .editor-toolbar { padding: 10px 16px; }
   #note-content { padding: 16px; }
+
+  /* 分页控件紧凑排列 */
+  .pagination { padding: 8px 12px; }
+  .pagination-info { font-size: 11px; }
+  .pagination-btn { width: 28px; height: 28px; font-size: 12px; }
 }

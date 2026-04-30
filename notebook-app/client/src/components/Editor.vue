@@ -11,7 +11,7 @@
 -->
 
 <template>
-  <main id="editor-panel">
+  <main id="editor-panel" @click="onEditorPanelClick">
     <!-- 未选中笔记时显示的空状态提示 -->
     <div v-if="!currentNoteId" id="editor-empty" class="empty-state">
       <p>选择或创建一条笔记开始编辑</p>
@@ -103,6 +103,7 @@ import { currentNoteId, notes, scheduleSave, updateWordCount, wordCount, lastSav
 import { updateNote } from '../composables/useNotes.js'
 import { openAiPanel } from '../composables/useAi.js'
 import { stripHtml } from '../utils/helpers.js'
+import { isMobile, closeAllDrawers } from '../composables/useMobile.js'
 import AiPanel from './AiPanel.vue'
 
 /** contenteditable 元素的模板引用 */
@@ -223,6 +224,15 @@ async function onDeleteNote() {
  */
 function onOpenAiPanel() {
   openAiPanel()
+}
+
+/**
+ * 点击编辑器区域时关闭移动端抽屉
+ */
+function onEditorPanelClick() {
+  if (isMobile.value) {
+    closeAllDrawers()
+  }
 }
 </script>
 
