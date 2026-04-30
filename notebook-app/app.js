@@ -1,5 +1,22 @@
 // ===== Data Layer =====
 const DB_KEY = 'noteflow_data';
+const API_BASE = '/api';
+let useApi = true; // Will be set to false if API is unavailable
+
+// Check if we're running with a backend server
+async function checkApiAvailability() {
+  try {
+    const res = await fetch(`${API_BASE}/data`, { method: 'GET', signal: AbortSignal.timeout(2000) });
+    if (res.ok) {
+      useApi = true;
+      return true;
+    }
+  } catch (e) {
+    // API not available, fall back to localStorage
+  }
+  useApi = false;
+  return false;
+}
 
 function loadData() {
   try {
@@ -15,6 +32,39 @@ function loadData() {
 
 function saveData(data) {
   localStorage.setItem(DB_KEY, JSON.stringify(data));
+}
+
+async function apiRequest(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' }
+  };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(`${API_BASE}${path}`, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Request failed' }));
+    throw new Error(err.error || 'Request failed');
+  }
+  return res.json();
+}
+
+// Sync entire data to server
+async function syncToServer(data) {
+  if (!useApi) return;
+  try {
+    await apiRequest('PUT', '/data', data);
+  } catch (e) {
+    console.warn('Failed to sync to server:', e.message);
+  }
+}
+
+async function loadFromServer() {
+  try {
+    return await apiRequest('GET', '/data');
+  } catch (e) {
+    console.warn('Failed to load from server:', e.message);
+    return null;
+  }
 }
 
 function genId() {
@@ -65,6 +115,9 @@ function applyTheme(theme) {
   $('#btn-toggle-theme').textContent = theme === 'dark' ? '☀️' : '🌙';
   data.settings.theme = theme;
   saveData(data);
+  if (useApi) {
+    apiRequest('PUT', '/settings', { theme }).catch(() => {});
+  }
 }
 
 $('#btn-toggle-theme').addEventListener('click', () => {
@@ -188,7 +241,7 @@ function selectNote(id) {
 }
 
 // ===== Create Note =====
-function createNote() {
+async function createNote() {
   const notebookId = currentNotebookId === 'all'
     ? (data.notebooks[0]?.id || 'default')
     : currentNotebookId;
@@ -203,8 +256,18 @@ function createNote() {
     updatedAt: Date.now()
   };
 
+  if (useApi) {
+    try {
+      const created = await apiRequest('POST', '/notes', { notebookId, title: '', content: '', tags: [] });
+      Object.assign(note, created);
+    } catch (e) {
+      console.warn('API create note failed, using local:', e.message);
+    }
+  }
+
   data.notes.unshift(note);
   saveData(data);
+  if (!useApi) syncToServer(data);
   renderNotebooks();
   renderNoteList();
   selectNote(note.id);
@@ -214,15 +277,27 @@ function createNote() {
 // ===== Auto Save =====
 function scheduleSave() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
+  saveTimer = setTimeout(async () => {
     const note = data.notes.find(n => n.id === currentNoteId);
     if (!note) return;
 
     note.title = noteTitle.value;
     note.content = noteContent.innerHTML;
     note.updatedAt = Date.now();
-    saveData(data);
 
+    if (useApi) {
+      try {
+        await apiRequest('PUT', `/notes/${note.id}`, {
+          title: note.title,
+          content: note.content,
+          tags: note.tags
+        });
+      } catch (e) {
+        console.warn('API save note failed:', e.message);
+      }
+    }
+
+    saveData(data);
     lastSaved.textContent = `已保存 ${formatDate(note.updatedAt)}`;
     renderNoteList();
     renderNotebooks();
@@ -328,13 +403,22 @@ $('#btn-add-tag').addEventListener('click', () => {
   `);
 });
 
-noteTags.addEventListener('click', (e) => {
+noteTags.addEventListener('click', async (e) => {
   const removeBtn = e.target.closest('.remove-tag');
   if (!removeBtn) return;
   const tag = removeBtn.dataset.tag;
   const note = data.notes.find(n => n.id === currentNoteId);
   if (!note) return;
   note.tags = (note.tags || []).filter(t => t !== tag);
+
+  if (useApi) {
+    try {
+      await apiRequest('PUT', `/notes/${note.id}`, { tags: note.tags });
+    } catch (e) {
+      console.warn('API update tags failed:', e.message);
+    }
+  }
+
   saveData(data);
   renderTags();
   renderNoteList();
@@ -395,23 +479,35 @@ $('#import-file').addEventListener('change', (e) => {
 });
 
 // ===== Global Functions =====
-window.createNotebook = function() {
+window.createNotebook = async function() {
   const input = $('#input-nb-name');
   const name = input.value.trim();
   if (!name) return;
 
   const icons = ['📓', '📔', '📕', '📗', '📘', '📙', '📒', '🗂️'];
-  data.notebooks.push({
-    id: genId(),
-    name,
-    icon: icons[Math.floor(Math.random() * icons.length)]
-  });
+  const icon = icons[Math.floor(Math.random() * icons.length)];
+
+  if (useApi) {
+    try {
+      const created = await apiRequest('POST', '/notebooks', { name, icon });
+      data.notebooks.push(created);
+      saveData(data);
+      renderNotebooks();
+      closeModal();
+      return;
+    } catch (e) {
+      console.warn('API create notebook failed, using local:', e.message);
+    }
+  }
+
+  data.notebooks.push({ id: genId(), name, icon });
   saveData(data);
+  syncToServer(data);
   renderNotebooks();
   closeModal();
 };
 
-window.renameNotebook = function(id) {
+window.renameNotebook = async function(id) {
   const input = $('#input-nb-name');
   const name = input.value.trim();
   if (!name) return;
@@ -419,6 +515,15 @@ window.renameNotebook = function(id) {
   const nb = data.notebooks.find(n => n.id === id);
   if (nb) {
     nb.name = name;
+
+    if (useApi) {
+      try {
+        await apiRequest('PUT', `/notebooks/${id}`, { name });
+      } catch (e) {
+        console.warn('API rename notebook failed:', e.message);
+      }
+    }
+
     saveData(data);
     renderNotebooks();
     if (currentNotebookId === id) currentNotebookName.textContent = name;
@@ -426,7 +531,15 @@ window.renameNotebook = function(id) {
   closeModal();
 };
 
-window.deleteNotebook = function(id) {
+window.deleteNotebook = async function(id) {
+  if (useApi) {
+    try {
+      await apiRequest('DELETE', `/notebooks/${id}`);
+    } catch (e) {
+      console.warn('API delete notebook failed:', e.message);
+    }
+  }
+
   data.notes = data.notes.filter(n => n.notebookId !== id);
   data.notebooks = data.notebooks.filter(n => n.id !== id);
   saveData(data);
@@ -446,7 +559,7 @@ window.deleteNotebook = function(id) {
   closeModal();
 };
 
-window.addTag = function() {
+window.addTag = async function() {
   const input = $('#input-tag');
   const tag = input.value.trim();
   if (!tag) return;
@@ -455,13 +568,30 @@ window.addTag = function() {
   if (!note) return;
   if (!note.tags) note.tags = [];
   if (!note.tags.includes(tag)) note.tags.push(tag);
+
+  if (useApi) {
+    try {
+      await apiRequest('PUT', `/notes/${note.id}`, { tags: note.tags });
+    } catch (e) {
+      console.warn('API add tag failed:', e.message);
+    }
+  }
+
   saveData(data);
   renderTags();
   renderNoteList();
   closeModal();
 };
 
-window.deleteNote = function() {
+window.deleteNote = async function() {
+  if (useApi) {
+    try {
+      await apiRequest('DELETE', `/notes/${currentNoteId}`);
+    } catch (e) {
+      console.warn('API delete note failed:', e.message);
+    }
+  }
+
   data.notes = data.notes.filter(n => n.id !== currentNoteId);
   saveData(data);
   currentNoteId = null;
@@ -472,10 +602,19 @@ window.deleteNote = function() {
   closeModal();
 };
 
-window.confirmImport = function() {
+window.confirmImport = async function() {
   if (window._pendingImport) {
     data = window._pendingImport;
     saveData(data);
+
+    if (useApi) {
+      try {
+        await apiRequest('PUT', '/data', data);
+      } catch (e) {
+        console.warn('API import failed:', e.message);
+      }
+    }
+
     currentNotebookId = 'all';
     currentNoteId = null;
     editorEmpty.style.display = 'flex';
@@ -507,6 +646,39 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ===== Init =====
-applyTheme(data.settings?.theme || 'light');
-renderNotebooks();
-renderNoteList();
+async function init() {
+  const apiAvailable = await checkApiAvailability();
+
+  if (apiAvailable) {
+    // Load from server
+    const serverData = await loadFromServer();
+    if (serverData) {
+      data = serverData;
+      saveData(data); // Also save to localStorage as backup
+    }
+    console.log('NoteFlow: Connected to server, using persistent storage');
+  } else {
+    console.log('NoteFlow: No server detected, using localStorage only');
+  }
+
+  applyTheme(data.settings?.theme || 'light');
+  renderNotebooks();
+  renderNoteList();
+
+  // Show storage mode indicator
+  const indicator = document.createElement('div');
+  indicator.style.cssText = 'position:fixed;bottom:8px;right:8px;font-size:11px;padding:4px 10px;border-radius:12px;z-index:999;';
+  if (apiAvailable) {
+    indicator.textContent = '已连接服务器';
+    indicator.style.background = '#d3f9d8';
+    indicator.style.color = '#2b8a3e';
+  } else {
+    indicator.textContent = '本地存储模式';
+    indicator.style.background = '#fff3bf';
+    indicator.style.color = '#e67700';
+  }
+  document.body.appendChild(indicator);
+  setTimeout(() => indicator.remove(), 3000);
+}
+
+init();
