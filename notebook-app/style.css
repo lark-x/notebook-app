@@ -1,28 +1,32 @@
-/* ===== Reset & Variables ===== */
+/* ===== 全局重置与 CSS 变量定义 ===== */
+
+/* 盒模型统一为 border-box，清除默认外边距和内边距 */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* 明亮主题的 CSS 变量（默认主题） */
 :root {
-  --bg: #f8f9fa;
-  --bg-sidebar: #1e1e2e;
-  --bg-panel: #ffffff;
-  --bg-editor: #ffffff;
-  --bg-hover: #e9ecef;
-  --bg-active: #d0ebff;
-  --text: #212529;
-  --text-secondary: #868e96;
-  --text-sidebar: #cdd6f4;
-  --text-sidebar-dim: #7f849c;
-  --border: #dee2e6;
-  --accent: #339af0;
-  --accent-hover: #228be6;
-  --danger: #e03131;
-  --tag-bg: #e7f5ff;
-  --tag-text: #1971c2;
-  --shadow: 0 1px 3px rgba(0,0,0,0.08);
-  --radius: 8px;
-  --transition: 0.2s ease;
+  --bg: #f8f9fa;              /* 页面主背景色 */
+  --bg-sidebar: #1e1e2e;      /* 侧边栏深色背景 */
+  --bg-panel: #ffffff;         /* 中间面板背景 */
+  --bg-editor: #ffffff;        /* 编辑器背景 */
+  --bg-hover: #e9ecef;         /* 悬停高亮色 */
+  --bg-active: #d0ebff;        /* 选中高亮色 */
+  --text: #212529;             /* 主文本色 */
+  --text-secondary: #868e96;   /* 次要文本色（预览、时间等） */
+  --text-sidebar: #cdd6f4;     /* 侧边栏文本色 */
+  --text-sidebar-dim: #7f849c; /* 侧边栏次要文本色 */
+  --border: #dee2e6;           /* 边框颜色 */
+  --accent: #339af0;           /* 主题强调色（按钮、链接） */
+  --accent-hover: #228be6;     /* 强调色悬停态 */
+  --danger: #e03131;           /* 危险操作色（删除按钮） */
+  --tag-bg: #e7f5ff;           /* 标签背景色 */
+  --tag-text: #1971c2;         /* 标签文本色 */
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);  /* 轻微阴影 */
+  --radius: 8px;               /* 默认圆角半径 */
+  --transition: 0.2s ease;     /* 默认过渡动画 */
 }
 
+/* 暗色主题：通过 [data-theme="dark"] 属性选择器覆盖变量 */
 [data-theme="dark"] {
   --bg: #11111b;
   --bg-sidebar: #181825;
@@ -40,6 +44,7 @@
   --shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
+/* 页面主体：使用系统字体栈，全屏高度，禁止外层滚动 */
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background: var(--bg);
@@ -48,14 +53,18 @@ body {
   overflow: hidden;
 }
 
-/* ===== Layout ===== */
+/* ===== 三栏布局 ===== */
+
+/* 应用根容器：CSS Grid 三栏布局 */
+/* 第一栏 240px（侧边栏），第二栏 280px（笔记列表），第三栏自适应（编辑器） */
 #app {
   display: grid;
   grid-template-columns: 240px 280px 1fr;
   height: 100vh;
 }
 
-/* ===== Sidebar ===== */
+/* ===== 左侧边栏 ===== */
+
 #sidebar {
   background: var(--bg-sidebar);
   color: var(--text-sidebar);
@@ -64,6 +73,7 @@ body {
   border-right: 1px solid rgba(255,255,255,0.06);
 }
 
+/* 侧边栏顶栏：Logo 和新建按钮 */
 .sidebar-header {
   display: flex;
   align-items: center;
@@ -71,6 +81,7 @@ body {
   padding: 20px 16px 12px;
 }
 
+/* Logo 文字样式 */
 .logo {
   font-size: 20px;
   font-weight: 700;
@@ -78,6 +89,7 @@ body {
   color: #fff;
 }
 
+/* 新建笔记本按钮（圆形 + 号） */
 .sidebar-header button {
   background: var(--accent);
   color: #fff;
@@ -95,6 +107,7 @@ body {
 
 .sidebar-header button:hover { background: var(--accent-hover); }
 
+/* 搜索框区域 */
 .sidebar-search {
   padding: 0 16px 12px;
 }
@@ -114,12 +127,14 @@ body {
 .sidebar-search input::placeholder { color: var(--text-sidebar-dim); }
 .sidebar-search input:focus { border-color: var(--accent); }
 
+/* 笔记本列表容器 */
 #notebook-list {
   flex: 1;
   overflow-y: auto;
   padding: 0 8px;
 }
 
+/* 笔记本列表项 */
 .notebook-item {
   display: flex;
   align-items: center;
@@ -135,8 +150,11 @@ body {
 .notebook-item:hover { background: rgba(255,255,255,0.06); }
 .notebook-item.active { background: rgba(255,255,255,0.12); color: #fff; }
 
+/* 笔记本图标 */
 .notebook-item .icon { font-size: 16px; flex-shrink: 0; }
+/* 笔记本名称（超长文本省略） */
 .notebook-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 笔记数量徽标 */
 .notebook-item .count {
   font-size: 11px;
   background: rgba(255,255,255,0.1);
@@ -144,6 +162,7 @@ body {
   border-radius: 10px;
   color: var(--text-sidebar-dim);
 }
+/* 操作按钮组（重命名、删除），默认隐藏，悬停时显示 */
 .notebook-item .actions { display: none; gap: 4px; }
 .notebook-item:hover .actions { display: flex; }
 .notebook-item:hover .count { display: none; }
@@ -159,6 +178,7 @@ body {
 }
 .notebook-item .actions button:hover { color: #fff; background: rgba(255,255,255,0.1); }
 
+/* 侧边栏底部操作栏 */
 .sidebar-footer {
   padding: 12px 16px;
   border-top: 1px solid rgba(255,255,255,0.06);
@@ -180,7 +200,8 @@ body {
 
 .sidebar-footer button:hover { background: rgba(255,255,255,0.06); color: var(--text-sidebar); }
 
-/* ===== Note List Panel ===== */
+/* ===== 中间面板：笔记列表 ===== */
+
 #note-list-panel {
   background: var(--bg-panel);
   border-right: 1px solid var(--border);
@@ -188,6 +209,7 @@ body {
   flex-direction: column;
 }
 
+/* 面板顶栏 */
 .panel-header {
   display: flex;
   align-items: center;
@@ -201,6 +223,7 @@ body {
   font-weight: 600;
 }
 
+/* 新建笔记按钮 */
 #btn-new-note {
   padding: 6px 14px;
   background: var(--accent);
@@ -214,12 +237,14 @@ body {
 
 #btn-new-note:hover { background: var(--accent-hover); }
 
+/* 笔记列表容器 */
 #note-list {
   flex: 1;
   overflow-y: auto;
   padding: 8px;
 }
 
+/* 笔记列表项 */
 .note-item {
   padding: 14px 16px;
   border-radius: var(--radius);
@@ -231,6 +256,7 @@ body {
 .note-item:hover { background: var(--bg-hover); }
 .note-item.active { background: var(--bg-active); }
 
+/* 笔记标题 */
 .note-item .note-title {
   font-size: 14px;
   font-weight: 600;
@@ -240,6 +266,7 @@ body {
   white-space: nowrap;
 }
 
+/* 笔记内容预览 */
 .note-item .note-preview {
   font-size: 12px;
   color: var(--text-secondary);
@@ -249,6 +276,7 @@ body {
   margin-bottom: 6px;
 }
 
+/* 笔记元信息（时间、标签） */
 .note-item .note-meta {
   display: flex;
   align-items: center;
@@ -263,6 +291,7 @@ body {
   flex-wrap: wrap;
 }
 
+/* 笔记列表中的标签样式 */
 .note-item .tag {
   font-size: 10px;
   padding: 1px 6px;
@@ -271,13 +300,15 @@ body {
   color: var(--tag-text);
 }
 
-/* ===== Editor Panel ===== */
+/* ===== 右侧编辑器面板 ===== */
+
 #editor-panel {
   display: flex;
   flex-direction: column;
   background: var(--bg-editor);
 }
 
+/* 未选中笔记时的空状态 */
 .empty-state {
   flex: 1;
   display: flex;
@@ -287,12 +318,14 @@ body {
   font-size: 15px;
 }
 
+/* 编辑器容器 */
 #editor-container {
   display: flex;
   flex-direction: column;
   height: 100%;
 }
 
+/* 编辑器工具栏 */
 .editor-toolbar {
   padding: 12px 24px;
   border-bottom: 1px solid var(--border);
@@ -301,6 +334,7 @@ body {
   gap: 10px;
 }
 
+/* 笔记标题输入框 */
 #note-title {
   font-size: 22px;
   font-weight: 700;
@@ -313,6 +347,7 @@ body {
 
 #note-title::placeholder { color: var(--text-secondary); }
 
+/* 工具栏按钮容器 */
 .toolbar-actions {
   display: flex;
   gap: 4px;
@@ -320,6 +355,7 @@ body {
   flex-wrap: wrap;
 }
 
+/* 工具栏按钮 */
 .toolbar-btn {
   width: 32px;
   height: 32px;
@@ -338,6 +374,7 @@ body {
 .toolbar-btn:hover { background: var(--bg-hover); }
 .toolbar-btn:active { background: var(--bg-active); }
 
+/* 工具栏按钮之间的分隔线 */
 .toolbar-sep {
   width: 1px;
   height: 20px;
@@ -345,6 +382,7 @@ body {
   margin: 0 4px;
 }
 
+/* 笔记标签展示区 */
 #note-tags {
   padding: 8px 24px;
   display: flex;
@@ -353,6 +391,7 @@ body {
   min-height: 20px;
 }
 
+/* 标签样式（带删除按钮） */
 #note-tags .tag {
   font-size: 12px;
   padding: 3px 10px;
@@ -364,6 +403,7 @@ body {
   gap: 4px;
 }
 
+/* 标签上的删除按钮 */
 #note-tags .tag .remove-tag {
   cursor: pointer;
   font-size: 14px;
@@ -373,6 +413,7 @@ body {
 
 #note-tags .tag .remove-tag:hover { opacity: 1; }
 
+/* 笔记内容编辑区（contenteditable） */
 #note-content {
   flex: 1;
   padding: 20px 24px;
@@ -383,12 +424,14 @@ body {
   color: var(--text);
 }
 
+/* 空编辑区的占位提示文本 */
 #note-content:empty::before {
   content: attr(placeholder);
   color: var(--text-secondary);
   pointer-events: none;
 }
 
+/* 编辑器内的富文本样式 */
 #note-content h2 { font-size: 20px; margin: 16px 0 8px; }
 #note-content blockquote {
   border-left: 3px solid var(--accent);
@@ -398,6 +441,7 @@ body {
 }
 #note-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 
+/* 编辑器底部状态栏 */
 .editor-status {
   padding: 8px 24px;
   border-top: 1px solid var(--border);
@@ -407,7 +451,9 @@ body {
   color: var(--text-secondary);
 }
 
-/* ===== Modal ===== */
+/* ===== 通用模态框 ===== */
+
+/* 模态框遮罩层（半透明黑色背景 + 毛玻璃效果） */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -419,6 +465,7 @@ body {
   backdrop-filter: blur(2px);
 }
 
+/* 模态框主体 */
 .modal {
   background: var(--bg-panel);
   border-radius: 12px;
@@ -428,6 +475,7 @@ body {
   overflow: hidden;
 }
 
+/* 模态框顶栏 */
 .modal-header {
   display: flex;
   align-items: center;
@@ -438,6 +486,7 @@ body {
 
 .modal-header h3 { font-size: 16px; font-weight: 600; }
 
+/* 模态框关闭按钮 */
 .modal-close {
   background: none;
   border: none;
@@ -447,6 +496,7 @@ body {
   padding: 4px;
 }
 
+/* 模态框内容区 */
 .modal-body { padding: 20px; }
 .modal-body input[type="text"] {
   width: 100%;
@@ -461,6 +511,7 @@ body {
 }
 .modal-body input[type="text"]:focus { border-color: var(--accent); }
 
+/* 模态框底部按钮区 */
 .modal-footer {
   padding: 12px 20px;
   border-top: 1px solid var(--border);
@@ -482,6 +533,7 @@ body {
 
 .modal-footer button:hover { background: var(--bg-hover); }
 
+/* 模态框主操作按钮（蓝色） */
 .modal-footer .btn-primary {
   background: var(--accent);
   color: #fff;
@@ -490,23 +542,31 @@ body {
 
 .modal-footer .btn-primary:hover { background: var(--accent-hover); }
 
+/* 模态框危险操作按钮（红色） */
 .modal-footer .btn-danger {
   background: var(--danger);
   color: #fff;
   border-color: var(--danger);
 }
 
-/* ===== Scrollbar ===== */
+/* ===== 自定义滚动条 ===== */
+
+/* 滚动条宽度 */
 ::-webkit-scrollbar { width: 6px; }
+/* 滚动条轨道（透明） */
 ::-webkit-scrollbar-track { background: transparent; }
+/* 滚动条滑块 */
 ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
 
-/* ===== Responsive ===== */
+/* ===== 响应式布局（移动端适配） ===== */
+
+/* 屏幕宽度 ≤ 900px 时切换单栏布局 */
 @media (max-width: 900px) {
   #app {
     grid-template-columns: 1fr;
   }
+  /* 侧边栏和笔记列表变为抽屉式覆盖层 */
   #sidebar, #note-list-panel {
     position: fixed;
     top: 0;
@@ -515,8 +575,10 @@ body {
     transform: translateX(-100%);
     transition: transform 0.3s ease;
   }
+  /* 通过 .open 类控制抽屉展开 */
   #sidebar.open { transform: translateX(0); width: 280px; }
   #note-list-panel.open { transform: translateX(0); left: 0; width: 300px; }
+  /* 编辑器内边距缩小 */
   .editor-toolbar { padding: 10px 16px; }
   #note-content { padding: 16px; }
 }
