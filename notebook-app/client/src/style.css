@@ -72,14 +72,16 @@ body {
 
 #app-grid {
   display: grid;
-  grid-template-columns: 240px 280px 1fr;
+  grid-template-columns: 240px 280px 1fr 0px;
   height: 100vh;
   height: 100dvh;
+  position: relative;
+  transition: grid-template-columns 0.3s ease;
 }
 
-/* AI 面板展开时：4 列布局 */
+/* AI 面板展开时：第 4 列从 0 扩展到 360px */
 #app-grid.ai-open {
-  grid-template-columns: 240px 280px 1fr auto;
+  grid-template-columns: 240px 280px 1fr 360px;
 }
 
 /* ===== 左侧边栏 ===== */

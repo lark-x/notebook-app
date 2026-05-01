@@ -100,7 +100,7 @@ const currentTitle = computed(() => {
  * 点击 Grid 背景区域时关闭抽屉
  */
 function onGridClick() {
-  if (isMobile.value && (sidebarOpen.value || noteListOpen.value)) {
+  if (isMobile.value && (sidebarOpen.value || noteListOpen.value || aiPanelOpen.value)) {
     closeAllDrawers()
   }
 }
