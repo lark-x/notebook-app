@@ -13,6 +13,9 @@ export const sidebarOpen = ref(false);
 /** 笔记列表抽屉是否展开 */
 export const noteListOpen = ref(false);
 
+/** AI 面板是否展开 */
+export const aiPanelOpen = ref(false);
+
 /** 当前是否为移动端视图（宽度 ≤ 900px） */
 export const isMobile = ref(window.innerWidth <= 900);
 
@@ -42,6 +45,7 @@ export function toggleNoteList() {
 export function closeAllDrawers() {
   sidebarOpen.value = false;
   noteListOpen.value = false;
+  aiPanelOpen.value = false;
 }
 
 /**

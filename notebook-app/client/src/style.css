@@ -77,6 +77,11 @@ body {
   height: 100dvh;
 }
 
+/* AI 面板展开时：4 列布局 */
+#app-grid.ai-open {
+  grid-template-columns: 240px 280px 1fr auto;
+}
+
 /* ===== 左侧边栏 ===== */
 
 #sidebar {
@@ -594,6 +599,11 @@ body {
 
 .toolbar-btn-ai:hover {
   opacity: 0.85;
+}
+
+.toolbar-btn-ai.active {
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.5);
+  opacity: 1;
 }
 
 /* ===== 分页控件 ===== */
