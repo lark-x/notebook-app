@@ -111,8 +111,10 @@ function onLogin() {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg);
   padding: 20px;
+  padding-top: calc(20px + env(safe-area-inset-top));
 }
 
 /* 登录卡片 */

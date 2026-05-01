@@ -101,10 +101,10 @@
 import { ref, watch, nextTick } from 'vue'
 import { currentNoteId, notes, scheduleSave, updateWordCount, wordCount, lastSavedText, deleteCurrentNote } from '../composables/useNotes.js'
 import { updateNote } from '../composables/useNotes.js'
-import { openAiPanel } from '../composables/useAi.js'
+import { openAiPanel } from '../ai/composables/useAi.js'
 import { stripHtml } from '../utils/helpers.js'
 import { isMobile, closeAllDrawers } from '../composables/useMobile.js'
-import AiPanel from './AiPanel.vue'
+import AiPanel from '../ai/components/AiPanel.vue'
 
 /** contenteditable 元素的模板引用 */
 const contentRef = ref(null)

@@ -19,6 +19,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const apiRoutes = require('./routes');
+const aiRoutes = require('./ai/routes');
 
 const app = express();
 // 服务端口，优先读取环境变量 PORT，默认 3000
@@ -33,6 +34,7 @@ app.use(express.json({ limit: '10mb' }));
 
 // 所有 /api 开头的请求交由路由模块处理
 app.use('/api', apiRoutes);
+app.use('/api', aiRoutes);
 
 // ===== 生产模式：托管 Vue 构建产物 =====
 
