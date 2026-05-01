@@ -18,10 +18,18 @@
         ☰
       </button>
       <span class="mobile-nav-title">{{ currentTitle }}</span>
+      <button class="mobile-nav-btn portal-btn" @click="goToPortal" title="返回门户">
+        🏠
+      </button>
       <button class="mobile-nav-btn" @click="toggleNoteList" title="笔记列表">
         📋
       </button>
     </header>
+
+    <!-- 桌面端返回门户按钮（固定在左上角侧边栏 Logo 旁） -->
+    <div v-if="!isMobile" class="back-to-portal">
+      <button @click="goToPortal" title="返回门户">← 门户</button>
+    </div>
 
     <!-- 左侧边栏：笔记本列表、搜索、操作按钮 -->
     <Sidebar :class="{ open: sidebarOpen }" />
@@ -45,6 +53,7 @@
  * 4. 应用保存的主题
  */
 import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import Sidebar from '../components/Sidebar.vue'
 import NoteList from '../components/NoteList.vue'
 import Editor from '../components/Editor.vue'
@@ -65,6 +74,13 @@ import {
 
 // 注册窗口尺寸变化监听
 useResizeListener()
+
+const router = useRouter()
+
+/** 返回门户页 */
+function goToPortal() {
+  router.push('/portal')
+}
 
 /** 移动端导航栏标题：当前选中笔记的标题或应用名 */
 const currentTitle = computed(() => {
@@ -107,6 +123,33 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* 桌面端返回门户按钮 */
+.back-to-portal {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+}
+
+.back-to-portal button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.back-to-portal button:hover {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
 /* 移动端顶部导航栏 */
 .mobile-nav {
   display: flex;
