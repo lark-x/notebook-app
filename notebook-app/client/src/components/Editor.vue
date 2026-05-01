@@ -46,6 +46,7 @@
           <button @click="onAddTag" title="添加标签">🏷️</button>
           <button
             class="toolbar-btn toolbar-btn-ai"
+            :class="{ active: showAiPanel }"
             @click="onOpenAiPanel"
             title="AI 创意转化"
           >✨</button>
@@ -81,8 +82,6 @@
       </div>
     </div>
 
-    <!-- AI 创意转化面板（弹出层） -->
-    <AiPanel />
   </main>
 </template>
 
@@ -101,10 +100,9 @@
 import { ref, watch, nextTick } from 'vue'
 import { currentNoteId, notes, scheduleSave, updateWordCount, wordCount, lastSavedText, deleteCurrentNote } from '../composables/useNotes.js'
 import { updateNote } from '../composables/useNotes.js'
-import { openAiPanel } from '../ai/composables/useAi.js'
+import { toggleAiPanel, showAiPanel } from '../ai/composables/useAi.js'
 import { stripHtml } from '../utils/helpers.js'
 import { isMobile, closeAllDrawers } from '../composables/useMobile.js'
-import AiPanel from '../ai/components/AiPanel.vue'
 
 /** contenteditable 元素的模板引用 */
 const contentRef = ref(null)
@@ -220,10 +218,10 @@ async function onDeleteNote() {
 }
 
 /**
- * 打开 AI 创意转化面板
+ * 切换 AI 创意转化面板
  */
 function onOpenAiPanel() {
-  openAiPanel()
+  toggleAiPanel()
 }
 
 /**

@@ -9,7 +9,7 @@
   <!-- 应用根容器，三栏 Grid 布局 -->
   <div
     id="app-grid"
-    :class="{ 'mobile': isMobile, 'drawer-active': isMobile && (sidebarOpen || noteListOpen) }"
+    :class="{ 'mobile': isMobile, 'ai-open': aiPanelOpen, 'drawer-active': isMobile && (sidebarOpen || noteListOpen || aiPanelOpen) }"
     @click.self="onGridClick"
   >
     <!-- 移动端顶部导航栏 -->
@@ -39,6 +39,9 @@
 
     <!-- 右侧主区域：富文本编辑器 -->
     <Editor />
+
+    <!-- AI 创意转化面板（常驻侧边栏） -->
+    <AiPanel :class="{ open: aiPanelOpen }" />
   </div>
 </template>
 
@@ -57,6 +60,7 @@ import { useRouter } from 'vue-router'
 import Sidebar from '../components/Sidebar.vue'
 import NoteList from '../components/NoteList.vue'
 import Editor from '../components/Editor.vue'
+import AiPanel from '../ai/components/AiPanel.vue'
 import { loadNotebooks } from '../composables/useNotebooks.js'
 import { fetchNotes, currentNoteId, notes } from '../composables/useNotes.js'
 import { checkAiStatus } from '../ai/composables/useAi.js'
@@ -66,6 +70,7 @@ import {
   isMobile,
   sidebarOpen,
   noteListOpen,
+  aiPanelOpen,
   toggleSidebar,
   toggleNoteList,
   closeAllDrawers,

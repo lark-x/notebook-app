@@ -1,90 +1,85 @@
 <!--
-  AI 创意转化面板组件（重构版 - 壳组件）
+  AI 创意转化面板组件（常驻侧边栏版）
 
-  职责：协调子组件，管理整体面板生命周期。
-  具体 UI 已拆分至：
-  - AiKeywords.vue — 关键词编辑
-  - AiResultCompare.vue — 结果对比
+  作为主布局的第 4 列常驻显示，不再使用弹窗。
+  由 NoteFlowApp.vue 通过 .open 类控制显隐。
 -->
 
 <template>
-  <div v-if="showAiPanel" class="ai-panel-mask" @click.self="onClose">
-    <div class="ai-panel">
-      <!-- 面板顶栏 -->
-      <div class="ai-panel-header">
-        <h3>✨ AI 创意转化</h3>
-        <button class="ai-panel-close" @click="onClose">&times;</button>
+  <aside id="ai-panel">
+    <!-- 面板顶栏 -->
+    <div class="ai-panel-header">
+      <h3>✨ AI 创意转化</h3>
+      <button class="ai-panel-close" @click="onClose">&times;</button>
+    </div>
+
+    <!-- 面板主体 -->
+    <div class="ai-panel-body">
+      <!-- 转化类型选择 -->
+      <div class="ai-transform-types">
+        <button
+          v-for="(config, key) in AI_TRANSFORM_TYPES"
+          :key="key"
+          class="ai-type-btn"
+          :class="{ active: aiState.currentType === key }"
+          @click="onSelectType(key)"
+        >
+          {{ config.icon }} {{ config.name }}
+        </button>
       </div>
 
-      <!-- 面板主体 -->
-      <div class="ai-panel-body">
-        <!-- 转化类型选择 -->
-        <div class="ai-transform-types">
-          <button
-            v-for="(config, key) in AI_TRANSFORM_TYPES"
-            :key="key"
-            class="ai-type-btn"
-            :class="{ active: aiState.currentType === key }"
-            @click="onSelectType(key)"
-          >
-            {{ config.icon }} {{ config.name }}
-          </button>
-        </div>
+      <!-- 关键词编辑（子组件） -->
+      <AiKeywords
+        :keywords="aiState.keywords"
+        @add="onAddKeyword"
+        @remove="onRemoveKeyword"
+      />
 
-        <!-- 关键词编辑（子组件） -->
-        <AiKeywords
-          :keywords="aiState.keywords"
-          @add="onAddKeyword"
-          @remove="onRemoveKeyword"
-        />
+      <!-- AI 未配置提示 -->
+      <div v-if="!aiState.apiConfigured" class="ai-not-configured">
+        <p>⚠️ AI API 未配置</p>
+        <p>请在项目根目录的 <code>.env</code> 文件中设置 <code>AI_API_KEY</code></p>
+        <p>支持 OpenAI、DeepSeek、Qwen 等 OpenAI 兼容接口</p>
+      </div>
 
-        <!-- AI 未配置提示 -->
-        <div v-if="!aiState.apiConfigured" class="ai-not-configured">
-          <p>⚠️ AI API 未配置</p>
-          <p>请在项目根目录的 <code>.env</code> 文件中设置 <code>AI_API_KEY</code></p>
-          <p>支持 OpenAI、DeepSeek、Qwen 等 OpenAI 兼容接口</p>
-        </div>
+      <!-- 转化按钮 -->
+      <button
+        class="ai-transform-btn"
+        :disabled="aiState.loading"
+        @click="onTransform"
+      >
+        {{ aiState.loading ? '正在转化中...' : '✨ 开始转化' }}
+      </button>
 
-        <!-- 转化按钮 -->
-        <button
-          class="ai-transform-btn"
-          :disabled="aiState.loading"
-          @click="onTransform"
-        >
-          {{ aiState.loading ? '正在转化中...' : '✨ 开始转化' }}
-        </button>
+      <!-- 加载动画 -->
+      <div v-if="aiState.loading" class="ai-loading">
+        <span>AI 正在思考中</span>
+        <span class="ai-loading-dots"><span></span><span></span><span></span></span>
+      </div>
 
-        <!-- 加载动画 -->
-        <div v-if="aiState.loading" class="ai-loading">
-          <span>AI 正在思考中</span>
-          <span class="ai-loading-dots"><span></span><span></span><span></span></span>
-        </div>
+      <!-- 结果对比（子组件） -->
+      <AiResultCompare
+        v-if="transformResult"
+        :original-text="originalText"
+        :result="transformResult"
+        :type-name="currentTypeName"
+        @accept="onAcceptResult"
+        @discard="onDiscard"
+      />
 
-        <!-- 结果对比（子组件） -->
-        <AiResultCompare
-          v-if="transformResult"
-          :original-text="originalText"
-          :result="transformResult"
-          :type-name="currentTypeName"
-          @accept="onAcceptResult"
-          @discard="onClose"
-        />
-
-        <!-- 错误信息 -->
-        <div v-if="errorMsg" style="padding:16px;text-align:center;color:var(--danger);">
-          <p style="margin-bottom:8px;">转化失败</p>
-          <p style="font-size:13px;color:var(--text-secondary);">{{ errorMsg }}</p>
-        </div>
+      <!-- 错误信息 -->
+      <div v-if="errorMsg" style="padding:16px;text-align:center;color:var(--danger);">
+        <p style="margin-bottom:8px;">转化失败</p>
+        <p style="font-size:13px;color:var(--text-secondary);">{{ errorMsg }}</p>
       </div>
     </div>
-  </div>
+  </aside>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import '../ai.module.css'
 import {
-  showAiPanel,
   aiState,
   AI_TRANSFORM_TYPES,
   closeAiPanel,
@@ -151,7 +146,12 @@ async function onAcceptResult() {
 
   await updateNote(currentNoteId.value, { content: resultHtml })
   await fetchNotes()
-  onClose()
+  onDiscard()
+}
+
+function onDiscard() {
+  transformResult.value = null
+  errorMsg.value = ''
 }
 
 function onClose() {
@@ -160,16 +160,3 @@ function onClose() {
   errorMsg.value = ''
 }
 </script>
-
-<style scoped>
-.ai-panel-mask {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1001;
-  backdrop-filter: blur(2px);
-}
-</style>

@@ -10,11 +10,12 @@
 import { ref, reactive } from 'vue';
 import { transformContent, checkApiStatus } from '../modules/aiService.js';
 import { AI_TRANSFORM_TYPES, getTypeConfig } from '../modules/transformTypes.js';
+import { aiPanelOpen } from '../../composables/useMobile.js';
 
 // ===== AI 面板状态 =====
 
-/** 是否显示 AI 面板 */
-export const showAiPanel = ref(false);
+/** 是否显示 AI 面板（与移动端状态联动） */
+export const showAiPanel = aiPanelOpen;
 
 /** AI 转化状态 */
 export const aiState = reactive({
@@ -49,16 +50,27 @@ export async function checkAiStatus() {
  * 打开 AI 面板
  */
 export function openAiPanel() {
-  showAiPanel.value = true;
+  aiPanelOpen.value = true;
 }
 
 /**
  * 关闭 AI 面板
  */
 export function closeAiPanel() {
-  showAiPanel.value = false;
+  aiPanelOpen.value = false;
   aiState.result = null;
   aiState.loading = false;
+}
+
+/**
+ * 切换 AI 面板显示/隐藏
+ */
+export function toggleAiPanel() {
+  if (aiPanelOpen.value) {
+    closeAiPanel()
+  } else {
+    openAiPanel()
+  }
 }
 
 /**
