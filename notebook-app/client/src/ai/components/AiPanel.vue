@@ -1,16 +1,13 @@
 <!--
-  AI 创意转化面板组件
+  AI 创意转化面板组件（重构版 - 壳组件）
 
-  弹出面板，提供：
-  - 转化类型选择（风格转换、内容扩展、摘要提炼）
-  - 关键词自定义（添加/删除标签）
-  - 转化按钮和加载动画
-  - 原文与转化结果的左右对比预览
-  - 采纳/放弃操作
+  职责：协调子组件，管理整体面板生命周期。
+  具体 UI 已拆分至：
+  - AiKeywords.vue — 关键词编辑
+  - AiResultCompare.vue — 结果对比
 -->
 
 <template>
-  <!-- 面板遮罩层（点击外部关闭） -->
   <div v-if="showAiPanel" class="ai-panel-mask" @click.self="onClose">
     <div class="ai-panel">
       <!-- 面板顶栏 -->
@@ -34,38 +31,12 @@
           </button>
         </div>
 
-        <!-- 关键词标签区 -->
-        <div class="ai-keywords-section">
-          <label>
-            自定义关键词
-            <span class="hint">（影响转化效果，可自由增删）</span>
-          </label>
-
-          <!-- 关键词标签列表 -->
-          <div class="ai-keywords-tags">
-            <span
-              v-for="keyword in aiState.keywords"
-              :key="keyword"
-              class="ai-keyword-tag"
-            >
-              {{ keyword }}
-              <span class="remove-keyword" @click="onRemoveKeyword(keyword)">&times;</span>
-            </span>
-          </div>
-
-          <!-- 关键词输入框 -->
-          <div class="ai-keyword-input-row">
-            <input
-              type="text"
-              class="ai-keyword-input"
-              placeholder="输入关键词后按回车或点击添加"
-              maxlength="20"
-              v-model="keywordInput"
-              @keydown.enter.prevent="onAddKeyword"
-            >
-            <button class="ai-keyword-add-btn" @click="onAddKeyword">添加</button>
-          </div>
-        </div>
+        <!-- 关键词编辑（子组件） -->
+        <AiKeywords
+          :keywords="aiState.keywords"
+          @add="onAddKeyword"
+          @remove="onRemoveKeyword"
+        />
 
         <!-- AI 未配置提示 -->
         <div v-if="!aiState.apiConfigured" class="ai-not-configured">
@@ -89,23 +60,15 @@
           <span class="ai-loading-dots"><span></span><span></span><span></span></span>
         </div>
 
-        <!-- 转化结果对比区 -->
-        <div v-if="transformResult" class="ai-result-area">
-          <div class="ai-compare">
-            <div class="ai-compare-box">
-              <div class="ai-compare-label">📄 原文</div>
-              <div class="ai-compare-content">{{ originalText }}</div>
-            </div>
-            <div class="ai-compare-box">
-              <div class="ai-compare-label">✨ {{ currentTypeName }}结果</div>
-              <div class="ai-compare-content">{{ transformResult }}</div>
-            </div>
-          </div>
-          <div class="ai-result-actions">
-            <button @click="onClose">放弃</button>
-            <button class="btn-accept" @click="onAcceptResult">采纳结果</button>
-          </div>
-        </div>
+        <!-- 结果对比（子组件） -->
+        <AiResultCompare
+          v-if="transformResult"
+          :original-text="originalText"
+          :result="transformResult"
+          :type-name="currentTypeName"
+          @accept="onAcceptResult"
+          @discard="onClose"
+        />
 
         <!-- 错误信息 -->
         <div v-if="errorMsg" style="padding:16px;text-align:center;color:var(--danger);">
@@ -118,17 +81,8 @@
 </template>
 
 <script setup>
-/**
- * AI 创意转化面板组件
- *
- * 管理 AI 转化的完整交互流程：
- * 1. 选择转化类型
- * 2. 配置关键词
- * 3. 执行转化
- * 4. 查看对比结果
- * 5. 采纳或放弃结果
- */
 import { ref, computed } from 'vue'
+import '../ai.module.css'
 import {
   showAiPanel,
   aiState,
@@ -139,59 +93,37 @@ import {
   removeAiKeyword,
   executeAiTransform
 } from '../composables/useAi.js'
-import { currentNoteId, notes, updateNote, fetchNotes } from '../composables/useNotes.js'
-import { stripHtml } from '../utils/helpers.js'
+import { currentNoteId, notes, updateNote, fetchNotes } from '../../composables/useNotes.js'
+import { stripHtml } from '../../utils/helpers.js'
+import AiKeywords from './AiKeywords.vue'
+import AiResultCompare from './AiResultCompare.vue'
 
-/** 关键词输入框的值 */
-const keywordInput = ref('')
-
-/** 转化结果文本 */
 const transformResult = ref(null)
-
-/** 错误信息 */
 const errorMsg = ref('')
 
-/** 原始笔记文本 */
 const originalText = computed(() => {
   const note = notes.value.find(n => n.id === currentNoteId.value)
   return note ? stripHtml(note.content || '').trim() : ''
 })
 
-/** 当前转化类型的中文名称 */
 const currentTypeName = computed(() => {
   return AI_TRANSFORM_TYPES[aiState.currentType]?.name || '转化'
 })
 
-/**
- * 选择转化类型
- * @param {string} type - 类型 ID
- */
 function onSelectType(type) {
   selectAiType(type)
   transformResult.value = null
   errorMsg.value = ''
 }
 
-/**
- * 添加关键词
- */
-function onAddKeyword() {
-  if (addAiKeyword(keywordInput.value)) {
-    keywordInput.value = ''
-  }
+function onAddKeyword(keyword) {
+  return addAiKeyword(keyword)
 }
 
-/**
- * 移除关键词
- * @param {string} keyword - 要移除的关键词
- */
 function onRemoveKeyword(keyword) {
   removeAiKeyword(keyword)
 }
 
-/**
- * 执行 AI 转化
- */
 async function onTransform() {
   if (!originalText.value) {
     errorMsg.value = '笔记内容为空，请先输入一些内容再进行转化。'
@@ -209,32 +141,19 @@ async function onTransform() {
   }
 }
 
-/**
- * 采纳转化结果
- * 将转化后的文本替换当前笔记的内容
- */
 async function onAcceptResult() {
   if (!transformResult.value || !currentNoteId.value) return
 
-  // 将纯文本转为 HTML（保留换行）
   const resultHtml = transformResult.value
     .split('\n')
     .map(line => line || '<br>')
     .join('<br>')
 
-  // 更新笔记内容
   await updateNote(currentNoteId.value, { content: resultHtml })
-
-  // 刷新笔记列表
   await fetchNotes()
-
-  // 关闭面板
   onClose()
 }
 
-/**
- * 关闭面板
- */
 function onClose() {
   closeAiPanel()
   transformResult.value = null
@@ -243,7 +162,6 @@ function onClose() {
 </script>
 
 <style scoped>
-/* AI 面板遮罩层 */
 .ai-panel-mask {
   position: fixed;
   inset: 0;

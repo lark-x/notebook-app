@@ -59,7 +59,7 @@ import NoteList from '../components/NoteList.vue'
 import Editor from '../components/Editor.vue'
 import { loadNotebooks } from '../composables/useNotebooks.js'
 import { fetchNotes, currentNoteId, notes } from '../composables/useNotes.js'
-import { checkAiStatus } from '../composables/useAi.js'
+import { checkAiStatus } from '../ai/composables/useAi.js'
 import { theme, applyTheme } from '../composables/useSettings.js'
 import { apiRequest } from '../utils/api.js'
 import {
