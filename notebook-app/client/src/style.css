@@ -1011,8 +1011,8 @@ body {
   .pagination-info { font-size: 11px; }
   .pagination-btn { width: 28px; height: 28px; font-size: 12px; }
 
-  /* 防止 iOS Safari 输入框自动缩放：确保 input/textarea 至少 16px */
-  input, textarea, select {
+  /* 防止 iOS Safari 输入框自动缩放：确保所有可输入元素至少 16px */
+  input, textarea, select, [contenteditable="true"] {
     font-size: 16px !important;
   }
 }
