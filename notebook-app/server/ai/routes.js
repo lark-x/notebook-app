@@ -1,9 +1,5 @@
 /**
  * AI 路由模块
- *
- * 提供两个端点：
- * - POST /ai-transform — 创意转化
- * - GET  /ai-status    — API 配置状态检测
  */
 
 const express = require('express');
@@ -12,12 +8,6 @@ const { chatCompletion, getConfig } = require('./providers/openai');
 
 const router = express.Router();
 
-/**
- * POST /ai-transform - AI 创意转化
- *
- * 请求体：{ content: string, type: string, keywords?: string[] }
- * 响应：  { result: string }
- */
 router.post('/ai-transform', async (req, res) => {
   const { content, type, keywords = [] } = req.body;
 
@@ -32,10 +22,7 @@ router.post('/ai-transform', async (req, res) => {
 
   const config = getConfig();
   if (!config.apiKey) {
-    return res.status(503).json({
-      error: 'AI API 未配置，请在 .env 文件中设置 AI_API_KEY',
-      notConfigured: true
-    });
+    return res.status(503).json({ error: 'AI API 未配置，请在 .env 文件中设置 AI_API_KEY', notConfigured: true });
   }
 
   const systemPrompt = buildPrompt(type, keywords);
@@ -48,32 +35,19 @@ router.post('/ai-transform', async (req, res) => {
       systemPrompt,
       userContent: content
     });
-
     res.json({ result });
   } catch (e) {
     console.error('AI transform failed:', e.message);
-
-    if (e.message.includes('超时')) {
-      return res.status(504).json({ error: e.message });
-    }
-    if (e.message.includes('请求失败')) {
-      return res.status(502).json({ error: e.message });
-    }
+    if (e.message.includes('超时')) return res.status(504).json({ error: e.message });
+    if (e.message.includes('请求失败')) return res.status(502).json({ error: e.message });
     res.status(500).json({ error: 'AI 转化失败：' + e.message });
   }
 });
 
-/**
- * GET /ai-status - 检查 AI API 配置状态
- */
 router.get('/ai-status', (req, res) => {
   const config = getConfig();
   const configured = !!config.apiKey;
-  res.json({
-    configured,
-    model: configured ? config.model : null,
-    base: configured ? config.apiBase : null
-  });
+  res.json({ configured, model: configured ? config.model : null, baseUrl: configured ? config.apiBase : null });
 });
 
 module.exports = router;

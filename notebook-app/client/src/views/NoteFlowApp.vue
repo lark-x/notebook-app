@@ -1,126 +1,72 @@
-<!--
-  NoteFlow 笔记应用视图
-
-  原 App.vue 的内容迁移至此，作为 /app/noteflow 路由的视图组件。
-  保留原有的三栏布局、移动端响应式、抽屉交互等全部功能。
--->
-
 <template>
-  <!-- 应用根容器，三栏 Grid 布局 -->
-  <div
-    id="app-grid"
-    :class="{ 'mobile': isMobile, 'ai-open': aiPanelOpen, 'drawer-active': isMobile && (sidebarOpen || noteListOpen || aiPanelOpen) }"
-    @click.self="onGridClick"
-  >
-    <!-- 移动端顶部导航栏 -->
-    <header v-if="isMobile" class="mobile-nav">
-      <button class="mobile-nav-btn" @click="toggleSidebar" title="笔记本">
-        ☰
-      </button>
+  <div id="app-grid"
+    :class="{ 'mobile': mobile.isMobile, 'ai-open': mobile.aiPanelOpen, 'drawer-active': mobile.isMobile && (mobile.sidebarOpen || mobile.noteListOpen || mobile.aiPanelOpen) }"
+    @click.self="onGridClick">
+
+    <header v-if="mobile.isMobile" class="mobile-nav">
+      <button class="mobile-nav-btn" @click="mobile.toggleSidebar" title="笔记本">☰</button>
       <span class="mobile-nav-title">{{ currentTitle }}</span>
-      <button class="mobile-nav-btn portal-btn" @click="goToPortal" title="返回门户">
-        🏠
-      </button>
-      <button class="mobile-nav-btn" @click="toggleNoteList" title="笔记列表">
-        📋
-      </button>
+      <button class="mobile-nav-btn portal-btn" @click="goToPortal" title="返回门户">🏠</button>
+      <button class="mobile-nav-btn" @click="mobile.toggleNoteList" title="笔记列表">📋</button>
     </header>
 
-    <!-- 桌面端返回门户按钮（固定在左上角侧边栏 Logo 旁） -->
-    <div v-if="!isMobile" class="back-to-portal">
+    <div v-if="!mobile.isMobile" class="back-to-portal">
       <button @click="goToPortal" title="返回门户">← 门户</button>
     </div>
 
-    <!-- 左侧边栏：笔记本列表、搜索、操作按钮 -->
-    <Sidebar :class="{ open: sidebarOpen }" />
-
-    <!-- 中间面板：笔记列表 + 分页 -->
-    <NoteList :class="{ open: noteListOpen }" />
-
-    <!-- 右侧主区域：富文本编辑器 -->
+    <Sidebar :class="{ open: mobile.sidebarOpen }" />
+    <NoteList :class="{ open: mobile.noteListOpen }" />
     <Editor />
-
-    <!-- AI 创意转化面板（常驻侧边栏） -->
-    <AiPanel :class="{ open: aiPanelOpen }" />
+    <AiPanel :class="{ open: mobile.aiPanelOpen }" />
   </div>
 </template>
 
 <script setup>
-/**
- * NoteFlow 应用视图
- *
- * 在 onMounted 中完成初始化：
- * 1. 加载笔记本列表
- * 2. 加载笔记列表（分页）
- * 3. 检测 AI API 配置状态
- * 4. 应用保存的主题
- */
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Sidebar from '../components/Sidebar.vue'
 import NoteList from '../components/NoteList.vue'
 import Editor from '../components/Editor.vue'
 import AiPanel from '../ai/components/AiPanel.vue'
-import { loadNotebooks } from '../composables/useNotebooks.js'
-import { fetchNotes, currentNoteId, notes } from '../composables/useNotes.js'
-import { checkAiStatus } from '../ai/composables/useAi.js'
-import { theme, applyTheme } from '../composables/useSettings.js'
+import { useNotebooksStore } from '../stores/useNotebooksStore.js'
+import { useNotesStore } from '../stores/useNotesStore.js'
+import { useAiStore } from '../stores/useAiStore.js'
+import { useSettingsStore } from '../stores/useSettingsStore.js'
+import { useMobileStore } from '../stores/useMobileStore.js'
 import { apiRequest } from '../utils/api.js'
-import {
-  isMobile,
-  sidebarOpen,
-  noteListOpen,
-  aiPanelOpen,
-  toggleSidebar,
-  toggleNoteList,
-  closeAllDrawers,
-  useResizeListener
-} from '../composables/useMobile.js'
-
-// 注册窗口尺寸变化监听
-useResizeListener()
 
 const router = useRouter()
+const nbStore = useNotebooksStore()
+const notesStore = useNotesStore()
+const aiStore = useAiStore()
+const settingsStore = useSettingsStore()
+const mobile = useMobileStore()
 
-/** 返回门户页 */
-function goToPortal() {
-  router.push('/portal')
-}
+mobile.useResizeListener()
 
-/** 移动端导航栏标题：当前选中笔记的标题或应用名 */
+function goToPortal() { router.push('/portal') }
+
 const currentTitle = computed(() => {
-  if (currentNoteId.value) {
-    const note = notes.value.find(n => n.id === currentNoteId.value)
+  if (notesStore.currentNoteId) {
+    const note = notesStore.notes.find(n => n.id === notesStore.currentNoteId)
     if (note) return note.title || '无标题'
   }
   return 'NoteFlow'
 })
 
-/**
- * 点击 Grid 背景区域时关闭抽屉
- */
 function onGridClick() {
-  if (isMobile.value && (sidebarOpen.value || noteListOpen.value || aiPanelOpen.value)) {
-    closeAllDrawers()
+  if (mobile.isMobile && (mobile.sidebarOpen || mobile.noteListOpen || mobile.aiPanelOpen)) {
+    mobile.closeAllDrawers()
   }
 }
 
 onMounted(async () => {
-  // 加载笔记本列表
-  await loadNotebooks()
-
-  // 加载笔记列表（第一页）
-  await fetchNotes()
-
-  // 检测 AI API 配置状态
-  await checkAiStatus()
-
-  // 从服务器加载主题设置
+  await nbStore.loadNotebooks()
+  await notesStore.fetchNotes()
+  await aiStore.checkAiStatus()
   try {
     const data = await apiRequest('GET', '/data')
-    if (data.settings?.theme) {
-      await applyTheme(data.settings.theme)
-    }
+    if (data.settings?.theme) await settingsStore.applyTheme(data.settings.theme)
   } catch (e) {
     console.warn('加载设置失败:', e.message)
   }
@@ -128,13 +74,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* 桌面端返回门户按钮 */
-.back-to-portal {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 10;
-}
+.back-to-portal { position: absolute; top: 12px; left: 12px; z-index: 10; }
 
 .back-to-portal button {
   display: flex;
@@ -150,12 +90,8 @@ onMounted(async () => {
   transition: all var(--transition);
 }
 
-.back-to-portal button:hover {
-  background: var(--bg-active);
-  color: var(--text);
-}
+.back-to-portal button:hover { background: var(--bg-active); color: var(--text); }
 
-/* 移动端顶部导航栏 */
 .mobile-nav {
   display: flex;
   align-items: center;
@@ -190,11 +126,8 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
-.mobile-nav-btn:hover {
-  background: rgba(255,255,255,0.1);
-}
+.mobile-nav-btn:hover { background: rgba(255,255,255,0.1); }
 
-/* 抽屉激活时 Grid 背景变暗 */
 .drawer-active::before {
   content: '';
   position: fixed;

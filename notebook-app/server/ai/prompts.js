@@ -1,12 +1,5 @@
 /**
  * AI 提示词注册表
- *
- * 每个转化类型对应一个 prompt 工厂函数，
- * 接收 keywords 数组，返回 system prompt 字符串。
- *
- * 新增类型只需：
- * 1. 在此文件添加条目
- * 2. 前端 transformTypes.js 添加对应配置
  */
 
 const AI_PROMPTS = {
@@ -31,12 +24,10 @@ const AI_PROMPTS = {
 4. 输出纯文本，不要添加额外的标题或说明`
 };
 
-/** 获取所有已注册的 prompt 类型 */
 function getPromptTypes() {
   return Object.keys(AI_PROMPTS);
 }
 
-/** 构建指定类型的 system prompt */
 function buildPrompt(type, keywords) {
   const factory = AI_PROMPTS[type];
   if (!factory) return null;

@@ -1,7 +1,7 @@
 {
   "name": "noteflow",
-  "version": "3.0.0",
-  "description": "NoteFlow - 跨平台笔记本应用（Vue 3 + Express + SQLite）",
+  "version": "4.0.0",
+  "description": "NoteFlow - 轻量级 Web 笔记应用（Vue 3 + Pinia + Express + SQLite）",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
+    "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.18.2"
   }
