@@ -1,10 +1,6 @@
-/**
- * 笔记管理 Store（Pinia）
- */
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { apiRequest } from '../utils/api.js'
-import { stripHtml } from '../utils/helpers.js'
 import { useNotebooksStore } from './useNotebooksStore.js'
 import { useMobileStore } from './useMobileStore.js'
 
@@ -18,116 +14,74 @@ export const useNotesStore = defineStore('notes', () => {
   const totalPages = ref(0)
   const lastSavedText = ref('')
   const wordCount = ref(0)
-
   let saveTimer = null
-
-  function calcTotalPages() {
-    return Math.max(1, Math.ceil(totalNotes.value / pageSize.value))
-  }
 
   async function fetchNotes() {
     try {
-      const nbStore = useNotebooksStore()
-      const params = new URLSearchParams({ page: currentPage.value, pageSize: pageSize.value })
-      if (nbStore.currentNotebookId !== 'all') params.set('notebookId', nbStore.currentNotebookId)
-      if (searchQuery.value) params.set('search', searchQuery.value)
-
-      const result = await apiRequest('GET', `/notes?${params.toString()}`)
-      notes.value = result.notes
-      totalNotes.value = result.total
-      currentPage.value = result.page
-      totalPages.value = calcTotalPages()
-    } catch (e) {
-      console.warn('获取笔记列表失败:', e.message)
-      notes.value = []
-      totalNotes.value = 0
-    }
+      const nb = useNotebooksStore()
+      const p = new URLSearchParams({ page: currentPage.value, pageSize: pageSize.value })
+      if (nb.currentNotebookId !== 'all') p.set('notebookId', nb.currentNotebookId)
+      if (searchQuery.value) p.set('search', searchQuery.value)
+      const r = await apiRequest('GET', `/notes?${p}`)
+      notes.value = r.notes; totalNotes.value = r.total; currentPage.value = r.page
+      totalPages.value = Math.max(1, Math.ceil(r.total / pageSize.value))
+    } catch (e) { notes.value = []; totalNotes.value = 0 }
   }
 
-  async function resetAndFetch() {
-    currentPage.value = 1
-    await fetchNotes()
-  }
+  async function resetAndFetch() { currentPage.value = 1; await fetchNotes() }
 
   async function goToPage(page) {
     if (page < 1 || page > totalPages.value || page === currentPage.value) return
-    currentPage.value = page
-    await fetchNotes()
+    currentPage.value = page; await fetchNotes()
   }
 
   function selectNote(id) {
-    const note = notes.value.find(n => n.id === id)
-    if (!note) return null
+    if (!notes.value.find(n => n.id === id)) return null
     currentNoteId.value = id
-    const mobileStore = useMobileStore()
-    mobileStore.closeAllDrawers()
-    return note
-  }
-
-  function getCurrentNote() {
-    return notes.value.find(n => n.id === currentNoteId.value) || null
+    useMobileStore().closeAllDrawers()
+    return id
   }
 
   async function createNote() {
-    const nbStore = useNotebooksStore()
-    const notebookId = nbStore.currentNotebookId === 'all' ? 'default' : nbStore.currentNotebookId
+    const nb = useNotebooksStore()
+    const nbId = nb.currentNotebookId === 'all' ? 'default' : nb.currentNotebookId
     try {
-      const created = await apiRequest('POST', '/notes', { notebookId, title: '', content: '', tags: [] })
-      currentPage.value = 1
-      await fetchNotes()
-      currentNoteId.value = created.id
-      return created
-    } catch (e) {
-      console.warn('创建笔记失败:', e.message)
-      return null
-    }
+      const c = await apiRequest('POST', '/notes', { notebookId: nbId, title: '', content: '', tags: [] })
+      currentPage.value = 1; await fetchNotes(); currentNoteId.value = c.id; return c
+    } catch (e) { return null }
   }
 
   async function updateNote(id, updates) {
     try {
       await apiRequest('PUT', `/notes/${id}`, updates)
-      const note = notes.value.find(n => n.id === id)
-      if (note) {
-        Object.assign(note, updates)
-        note.updatedAt = Date.now()
-      }
+      const n = notes.value.find(x => x.id === id)
+      if (n) { Object.assign(n, updates); n.updatedAt = Date.now() }
       return true
-    } catch (e) {
-      console.warn('更新笔记失败:', e.message)
-      return false
-    }
+    } catch (e) { return false }
   }
 
   async function deleteCurrentNote() {
-    if (!currentNoteId.value) return false
-    try {
-      await apiRequest('DELETE', `/notes/${currentNoteId.value}`)
-    } catch (e) {
-      console.warn('删除笔记失败:', e.message)
-    }
-    currentNoteId.value = null
-    await fetchNotes()
-    return true
+    if (!currentNoteId.value) return
+    try { await apiRequest('DELETE', `/notes/${currentNoteId.value}`) } catch (e) {}
+    currentNoteId.value = null; await fetchNotes()
   }
 
-  function scheduleSave(noteData) {
+  function scheduleSave(data) {
     clearTimeout(saveTimer)
     saveTimer = setTimeout(async () => {
       if (!currentNoteId.value) return
-      await updateNote(currentNoteId.value, { title: noteData.title, content: noteData.content })
+      await updateNote(currentNoteId.value, { title: data.title, content: data.content })
       lastSavedText.value = `已保存 ${new Date().toLocaleTimeString('zh-CN')}`
       await fetchNotes()
     }, 500)
   }
 
-  function updateWordCount(text) {
-    wordCount.value = text.length
-  }
+  function updateWordCount(text) { wordCount.value = text.length }
 
   return {
     notes, currentNoteId, searchQuery, currentPage, pageSize, totalNotes, totalPages,
     lastSavedText, wordCount,
-    fetchNotes, resetAndFetch, goToPage, selectNote, getCurrentNote,
-    createNote, updateNote, deleteCurrentNote, scheduleSave, updateWordCount
+    fetchNotes, resetAndFetch, goToPage, selectNote, createNote, updateNote,
+    deleteCurrentNote, scheduleSave, updateWordCount,
   }
 })

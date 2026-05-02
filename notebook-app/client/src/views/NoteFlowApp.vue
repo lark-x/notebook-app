@@ -1,23 +1,16 @@
 <template>
-  <div id="app-grid"
-    :class="{ 'mobile': mobile.isMobile, 'ai-open': mobile.aiPanelOpen, 'drawer-active': mobile.isMobile && (mobile.sidebarOpen || mobile.noteListOpen || mobile.aiPanelOpen) }"
-    @click.self="onGridClick">
-
-    <header v-if="mobile.isMobile" class="mobile-nav">
-      <button class="mobile-nav-btn" @click="mobile.toggleSidebar" title="笔记本">☰</button>
+  <div id="app-grid" :class="{ mobile: mob.isMobile, 'ai-open': mob.aiPanelOpen, 'drawer-active': mob.isMobile && (mob.sidebarOpen || mob.noteListOpen || mob.aiPanelOpen) }" @click.self="onGridClick">
+    <header v-if="mob.isMobile" class="mobile-nav">
+      <button class="mobile-nav-btn" @click="mob.toggleSidebar">☰</button>
       <span class="mobile-nav-title">{{ currentTitle }}</span>
-      <button class="mobile-nav-btn portal-btn" @click="goToPortal" title="返回门户">🏠</button>
-      <button class="mobile-nav-btn" @click="mobile.toggleNoteList" title="笔记列表">📋</button>
+      <button class="mobile-nav-btn" @click="router.push('/portal')">🏠</button>
+      <button class="mobile-nav-btn" @click="mob.toggleNoteList">📋</button>
     </header>
-
-    <div v-if="!mobile.isMobile" class="back-to-portal">
-      <button @click="goToPortal" title="返回门户">← 门户</button>
-    </div>
-
-    <Sidebar :class="{ open: mobile.sidebarOpen }" />
-    <NoteList :class="{ open: mobile.noteListOpen }" />
+    <div v-if="!mob.isMobile" class="back-to-portal"><button @click="router.push('/portal')">← 门户</button></div>
+    <Sidebar :class="{ open: mob.sidebarOpen }" />
+    <NoteList :class="{ open: mob.noteListOpen }" />
     <Editor />
-    <AiPanel :class="{ open: mobile.aiPanelOpen }" />
+    <AiPanel :class="{ open: mob.aiPanelOpen }" />
   </div>
 </template>
 
@@ -40,100 +33,31 @@ const nbStore = useNotebooksStore()
 const notesStore = useNotesStore()
 const aiStore = useAiStore()
 const settingsStore = useSettingsStore()
-const mobile = useMobileStore()
-
-mobile.useResizeListener()
-
-function goToPortal() { router.push('/portal') }
+const mob = useMobileStore()
+mob.useResizeListener()
 
 const currentTitle = computed(() => {
-  if (notesStore.currentNoteId) {
-    const note = notesStore.notes.find(n => n.id === notesStore.currentNoteId)
-    if (note) return note.title || '无标题'
-  }
+  if (notesStore.currentNoteId) { const n = notesStore.notes.find(x => x.id === notesStore.currentNoteId); if (n) return n.title || '无标题' }
   return 'NoteFlow'
 })
 
-function onGridClick() {
-  if (mobile.isMobile && (mobile.sidebarOpen || mobile.noteListOpen || mobile.aiPanelOpen)) {
-    mobile.closeAllDrawers()
-  }
-}
+function onGridClick() { if (mob.isMobile && (mob.sidebarOpen || mob.noteListOpen || mob.aiPanelOpen)) mob.closeAllDrawers() }
 
 onMounted(async () => {
   await nbStore.loadNotebooks()
   await notesStore.fetchNotes()
   await aiStore.checkAiStatus()
-  try {
-    const data = await apiRequest('GET', '/data')
-    if (data.settings?.theme) await settingsStore.applyTheme(data.settings.theme)
-  } catch (e) {
-    console.warn('加载设置失败:', e.message)
-  }
+  try { const d = await apiRequest('GET', '/data'); if (d.settings?.theme) await settingsStore.applyTheme(d.settings.theme) } catch {}
 })
 </script>
 
 <style scoped>
-.back-to-portal { position: absolute; top: 12px; left: 12px; z-index: 10; }
-
-.back-to-portal button {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  background: var(--bg-hover);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.back-to-portal button:hover { background: var(--bg-active); color: var(--text); }
-
-.mobile-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  padding-top: calc(8px + env(safe-area-inset-top));
-  background: var(--bg-sidebar);
-  color: var(--text-sidebar);
-  min-height: 44px;
-  flex-shrink: 0;
-}
-
-.mobile-nav-title {
-  font-size: 15px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  text-align: center;
-  padding: 0 8px;
-}
-
-.mobile-nav-btn {
-  background: none;
-  border: none;
-  color: var(--text-sidebar);
-  font-size: 20px;
-  padding: 4px 10px;
-  cursor: pointer;
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-
-.mobile-nav-btn:hover { background: rgba(255,255,255,0.1); }
-
-.drawer-active::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.4);
-  z-index: 100;
-  pointer-events: none;
-}
+.back-to-portal { position:absolute; top:12px; left:12px; z-index:10; }
+.back-to-portal button { display:flex; align-items:center; gap:4px; padding:6px 12px; background:var(--bg-hover); border:1px solid var(--border); border-radius:6px; font-size:13px; color:var(--text-secondary); cursor:pointer; transition:all var(--transition); }
+.back-to-portal button:hover { background:var(--bg-active); color:var(--text); }
+.mobile-nav { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; padding-top:calc(8px + env(safe-area-inset-top)); background:var(--bg-sidebar); color:var(--text-sidebar); min-height:44px; flex-shrink:0; }
+.mobile-nav-title { font-size:15px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; text-align:center; padding:0 8px; }
+.mobile-nav-btn { background:none; border:none; color:var(--text-sidebar); font-size:20px; padding:4px 10px; cursor:pointer; border-radius:6px; flex-shrink:0; }
+.mobile-nav-btn:hover { background:rgba(255,255,255,.1); }
+.drawer-active::before { content:''; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:100; pointer-events:none; }
 </style>
