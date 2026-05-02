@@ -8,21 +8,10 @@
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
-  /* 默认隐藏：宽度为 0 */
-  width: 0;
   min-width: 0;
-  opacity: 0;
-  transition: width 0.3s ease, opacity 0.2s ease;
 }
 
-/* 展开状态：固定宽度 360px */
-#ai-panel.open {
-  width: 360px;
-  min-width: 360px;
-  opacity: 1;
-}
-
-/* AI 面板顶栏 */
+/* 面板顶栏 */
 .ai-panel-header {
   display: flex;
   align-items: center;
@@ -55,7 +44,7 @@
 
 .ai-panel-close:hover { background: var(--bg-hover); }
 
-/* AI 面板主体 */
+/* 面板主体 */
 .ai-panel-body {
   flex: 1;
   overflow-y: auto;
@@ -100,9 +89,7 @@
   color: #e67700;
 }
 
-.ai-not-configured p {
-  margin: 4px 0;
-}
+.ai-not-configured p { margin: 4px 0; }
 
 .ai-not-configured code {
   background: rgba(0,0,0,0.06);
@@ -133,10 +120,7 @@
 }
 
 .ai-transform-btn:hover { opacity: 0.9; }
-.ai-transform-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.ai-transform-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* 加载动画 */
 .ai-loading {
@@ -168,9 +152,7 @@
 
 /* ===== AiKeywords 组件样式 ===== */
 
-.ai-keywords-section {
-  margin-bottom: 16px;
-}
+.ai-keywords-section { margin-bottom: 16px; }
 
 .ai-keywords-section label {
   display: block;
@@ -248,9 +230,7 @@
 
 /* ===== AiResultCompare 组件样式 ===== */
 
-.ai-result-area {
-  margin-top: 16px;
-}
+.ai-result-area { margin-top: 16px; }
 
 .ai-compare {
   display: flex;
@@ -324,19 +304,11 @@
     width: 320px;
     min-width: 320px;
     transform: translateX(100%);
-    transition: transform 0.3s ease, opacity 0.2s ease;
-    opacity: 1;
+    transition: transform 0.3s ease;
     box-shadow: -4px 0 20px rgba(0,0,0,0.15);
   }
 
   #ai-panel.open {
     transform: translateX(0);
-    width: 320px;
-    min-width: 320px;
-  }
-
-  /* 移动端结果对比改为纵向 */
-  .ai-compare {
-    grid-template-columns: 1fr;
   }
 }
