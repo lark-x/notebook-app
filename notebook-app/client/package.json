@@ -1,7 +1,6 @@
 {
   "name": "noteflow-client",
-  "version": "4.0.0",
-  "description": "NoteFlow Vue 3 前端应用",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
