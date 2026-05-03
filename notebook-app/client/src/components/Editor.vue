@@ -16,199 +16,142 @@
           <button class="diff-btn diff-reject" @click="rejectDiff">✕ 放弃</button>
         </div>
       </div>
-      <div class="version-timeline" v-if="versions.length > 1">
+      <div class="version-timeline" v-if="versionStore.versions.length > 1">
         <div class="version-track">
-          <div v-for="(v, i) in versions" :key="v.id" class="version-dot" :class="{ active: i === currentVersionIndex, ai: v.type === 'ai' }" :title="v.label" @click="onRestoreVersion(i)">
+          <div v-for="(v, i) in versionStore.versions" :key="v.id" class="version-dot" :class="{ active: i === versionStore.currentVersionIndex, ai: v.type === 'ai' }" :title="v.label" @click="onRestoreVersion(i)">
             <span class="version-icon">{{ v.type === 'original' ? '📄' : '✨' }}</span>
             <span class="version-label">{{ v.label }}</span>
           </div>
         </div>
       </div>
-      <div id="vditor-wrapper"></div>
+      <MdEditor
+        v-model="editorContent"
+        :theme="editorTheme"
+        :preview="true"
+        :htmlPreview="false"
+        style="flex:1;min-height:0;"
+        @onHtmlChanged="onHtmlChanged"
+      />
       <div class="editor-status"><span>{{ wordCount }} 字</span><span>{{ notesStore.lastSavedText }}</span></div>
     </div>
   </main>
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onUnmounted } from 'vue'
-import Vditor from 'vditor'
-import 'vditor/dist/index.css'
+import { ref, watch, nextTick, computed } from 'vue'
+import { MdEditor } from 'md-editor-v3'
+import 'md-editor-v3/lib/style.css'
 import { useNotesStore } from '../stores/useNotesStore.js'
 import { useAiStore } from '../stores/useAiStore.js'
 import { useMobileStore } from '../stores/useMobileStore.js'
 import { useVersionStore } from '../stores/useVersionStore.js'
-import { stripHtml } from '../utils/helpers.js'
+import { useSettingsStore } from '../stores/useSettingsStore.js'
 
 const notesStore = useNotesStore()
 const aiStore = useAiStore()
 const mob = useMobileStore()
 const versionStore = useVersionStore()
+const settingsStore = useSettingsStore()
 
 const noteTitle = ref('')
+const editorContent = ref('')
 const wordCount = ref(0)
 const showDiff = ref(false)
-const diffContent = ref('')
 const pendingAiContent = ref('')
-let vditor = null
+const skipSave = ref(false)
 
-const versions = ref([])
-const currentVersionIndex = ref(0)
-
-function getVditorValue() {
-  return vditor ? vditor.getValue() : ''
-}
-
-function setVditorValue(val) {
-  if (vditor) vditor.setValue(val || '')
-}
-
-// 初始化 Vditor
-function initVditor() {
-  if (vditor) { vditor.destroy(); vditor = null }
-  const wrapper = document.getElementById('vditor-wrapper')
-  if (!wrapper) return
-  wrapper.innerHTML = ''
-
-  vditor = new Vditor(wrapper, {
-    mode: 'ir', // 即时渲染模式
-    height: '100%',
-    placeholder: '开始输入...',
-    toolbar: [
-      'emoji', 'bold', 'italic', 'strike', '|',
-      'line', 'quote', 'list', 'ordered-list', '|',
-      'code', 'inline-code', 'table', '|',
-      'undo', 'redo', '|',
-      'edit-mode', 'preview', 'fullscreen',
-    ],
-    toolbarConfig: { hide: false },
-    cache: { enable: false },
-    outline: { enable: false },
-    after: () => {
-      const n = notesStore.notes.find(x => x.id === notesStore.currentNoteId)
-      if (n) {
-        const content = n.content || ''
-        vditor.setValue(content)
-        updateWordCount(content)
-      }
-    },
-    input: (value) => {
-      updateWordCount(value)
-      notesStore.scheduleSave({ title: noteTitle.value, content: value })
-    },
-  })
-}
+const editorTheme = computed(() => settingsStore.theme === 'dark' ? 'dark' : 'light')
 
 function updateWordCount(text) {
   wordCount.value = (text || '').replace(/[#*`>\-\[\]()!\s]/g, '').length
 }
 
-// 切换笔记时重新初始化
-watch(() => notesStore.currentNoteId, (id) => {
+// 切换笔记
+watch(() => notesStore.currentNoteId, async (id) => {
   if (!id) return
   const n = notesStore.notes.find(x => x.id === id)
   if (!n) return
   noteTitle.value = n.title || ''
-
-  // 初始化版本
-  versionStore.initNote(id, n.content || '')
-  versions.value = versionStore.getVersions(id)
-  currentVersionIndex.value = versionStore.currentVersionIndex
-
+  editorContent.value = n.content || ''
+  updateWordCount(n.content || '')
   showDiff.value = false
-  diffContent.value = ''
-
-  nextTick(() => {
-    if (vditor) {
-      vditor.setValue(n.content || '')
-      updateWordCount(n.content || '')
-    } else {
-      initVditor()
-    }
-  })
+  pendingAiContent.value = ''
+  await versionStore.loadVersions(id)
 })
 
-// AI 预览 diff（不替换，先展示）
+// AI 预览
 watch(() => notesStore.pendingAiContent, (content) => {
   if (!content) return
   pendingAiContent.value = content
   showDiff.value = true
-  // 用 diff 模式展示差异
-  if (vditor) {
-    const original = vditor.getValue()
-    // 渲染 AI 结果预览
-    vditor.setValue(content)
-    updateWordCount(content)
-  }
+  skipSave.value = true
+  editorContent.value = content
+  updateWordCount(content)
+  nextTick(() => { skipSave.value = false })
+})
+
+// 内容变化 → 保存
+watch(editorContent, (val) => {
+  if (skipSave.value || showDiff.value) return
+  updateWordCount(val)
+  notesStore.scheduleSave({ title: noteTitle.value, content: val })
 })
 
 function acceptDiff() {
   if (!pendingAiContent.value || !notesStore.currentNoteId) return
   const content = pendingAiContent.value
-
-  // 添加版本
-  const aiType = aiStore.aiState.currentType
-  const typeNames = { style: '风格转换', expand: '内容扩展', summary: '摘要提炼' }
-  versionStore.addVersion(notesStore.currentNoteId, content, aiType, typeNames[aiType] || 'AI')
-  versions.value = versionStore.getVersions(notesStore.currentNoteId)
-  currentVersionIndex.value = versionStore.currentVersionIndex
-
-  // 保存到服务端
+  // 保存版本到 DB
+  versionStore.addVersion(notesStore.currentNoteId, content, aiStore.aiState.currentType)
+  // 更新笔记
   notesStore.updateNote(notesStore.currentNoteId, { content })
   notesStore.fetchNotes()
-
   showDiff.value = false
   notesStore.pendingAiContent = null
+  pendingAiContent.value = ''
 }
 
 function rejectDiff() {
-  // 恢复原文
-  if (vditor && notesStore.currentNoteId) {
-    const versions = versionStore.getVersions(notesStore.currentNoteId)
-    const current = versions[currentVersionIndex.value]
-    if (current) {
-      vditor.setValue(current.content)
-      updateWordCount(current.content)
-    }
+  // 恢复到当前版本
+  const v = versionStore.versions[versionStore.currentVersionIndex]
+  if (v) {
+    skipSave.value = true
+    editorContent.value = v.content
+    updateWordCount(v.content)
+    nextTick(() => { skipSave.value = false })
   }
   showDiff.value = false
   notesStore.pendingAiContent = null
+  pendingAiContent.value = ''
 }
 
 function onRestoreVersion(index) {
-  if (!notesStore.currentNoteId) return
-  const v = versionStore.restoreVersion(notesStore.currentNoteId, index)
-  if (v && vditor) {
-    vditor.setValue(v.content)
+  const v = versionStore.restoreVersion(index)
+  if (v) {
+    skipSave.value = true
+    editorContent.value = v.content
     updateWordCount(v.content)
-    currentVersionIndex.value = index
-    // 保存恢复的版本
     notesStore.updateNote(notesStore.currentNoteId, { content: v.content })
     notesStore.fetchNotes()
+    nextTick(() => { skipSave.value = false })
   }
 }
 
 function onTitleInput(e) {
   noteTitle.value = e.target.value
-  notesStore.scheduleSave({ title: noteTitle.value, content: getVditorValue() })
+  notesStore.scheduleSave({ title: noteTitle.value, content: editorContent.value })
 }
+
+function onHtmlChanged() { /* noop - html preview handled by md-editor */ }
 
 async function delNote() {
   const n = notesStore.notes.find(x => x.id === notesStore.currentNoteId)
   if (n && confirm(`确定删除「${n.title || '无标题'}」吗？`)) {
-    versionStore.clearNote(notesStore.currentNoteId)
     await notesStore.deleteCurrentNote()
   }
 }
-
-onUnmounted(() => { if (vditor) { vditor.destroy(); vditor = null } })
 </script>
 
 <style scoped>
-#vditor-wrapper { flex:1; min-height:0; overflow:hidden; }
-#vditor-wrapper :deep(.vditor) { border:none; border-radius:0; height:100%!important; }
-#vditor-wrapper :deep(.vditor-content) { height:100%!important; }
-
 .diff-bar { display:flex; align-items:center; justify-content:space-between; padding:8px 24px; background:#fff3bf; border-bottom:1px solid #ffe066; flex-shrink:0; }
 .diff-label { font-size:13px; font-weight:600; color:#e67700; }
 .diff-actions { display:flex; gap:8px; }
