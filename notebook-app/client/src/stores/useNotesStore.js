@@ -15,7 +15,7 @@ export const useNotesStore = defineStore('notes', () => {
   const totalPages = ref(0)
   const lastSavedText = ref('')
   const wordCount = ref(0)
-  const lastAcceptedContent = ref(null)
+  const pendingAiContent = ref(null)
   let saveTimer = null
 
   async function fetchNotes() {
@@ -91,7 +91,7 @@ export const useNotesStore = defineStore('notes', () => {
 
   return {
     notes, sidebarNotes, currentNoteId, searchQuery, currentPage, pageSize, totalNotes, totalPages,
-    lastSavedText, wordCount, lastAcceptedContent,
+    lastSavedText, wordCount, pendingAiContent,
     fetchNotes, fetchSidebarNotes, resetAndFetch, goToPage, selectNote, createNote, updateNote,
     deleteCurrentNote, scheduleSave, updateWordCount,
   }

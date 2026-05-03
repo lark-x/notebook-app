@@ -18,7 +18,7 @@
           <div class="ai-compare-box"><div class="ai-compare-label">📄 原文</div><div class="ai-compare-content">{{ originalText }}</div></div>
           <div class="ai-compare-box"><div class="ai-compare-label">✨ 结果</div><div class="ai-compare-content">{{ result }}</div></div>
         </div>
-        <div class="ai-result-actions"><button @click="result=null">放弃</button><button class="btn-accept" @click="onAccept">采纳结果</button></div>
+        <div class="ai-result-actions"><button @click="result=null">放弃</button><button class="btn-accept" @click="onPreview">预览并采纳</button></div>
       </div>
       <div v-if="err" style="padding:16px;text-align:center;color:var(--danger);"><p>转化失败</p><p style="font-size:13px;color:var(--text-secondary);">{{ err }}</p></div>
     </div>
@@ -38,7 +38,10 @@ const result = ref(null)
 const err = ref('')
 const kwInput = ref('')
 
-const originalText = computed(() => { const n = notesStore.notes.find(x => x.id === notesStore.currentNoteId); return n ? stripHtml(n.content || '').trim() : '' })
+const originalText = computed(() => {
+  const n = notesStore.notes.find(x => x.id === notesStore.currentNoteId)
+  return n ? (n.content || '').trim() : ''
+})
 
 function onAddKw() { if (ai.addKeyword(kwInput.value)) kwInput.value = '' }
 
@@ -48,12 +51,11 @@ async function onTransform() {
   try { result.value = await ai.executeTransform(originalText.value) } catch (e) { err.value = e.message }
 }
 
-async function onAccept() {
-  if (!result.value || !notesStore.currentNoteId) return
-  const html = result.value.split('\n').map(l => l || '<br>').join('<br>')
-  await notesStore.updateNote(notesStore.currentNoteId, { content: html })
-  notesStore.lastAcceptedContent = html
-  await notesStore.fetchNotes(); result.value = null
+function onPreview() {
+  if (!result.value) return
+  // 将 AI 结果发送到编辑器预览（diff 模式）
+  notesStore.pendingAiContent = result.value
+  result.value = null
 }
 
 function onClose() { ai.closeAiPanel(); result.value = null; err.value = '' }
