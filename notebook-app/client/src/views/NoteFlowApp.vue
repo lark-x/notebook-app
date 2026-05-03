@@ -46,6 +46,7 @@ function onGridClick() { if (mob.isMobile && (mob.sidebarOpen || mob.noteListOpe
 onMounted(async () => {
   await nbStore.loadNotebooks()
   await notesStore.fetchNotes()
+  await notesStore.fetchSidebarNotes()
   await aiStore.checkAiStatus()
   try { const d = await apiRequest('GET', '/data'); if (d.settings?.theme) await settingsStore.applyTheme(d.settings.theme) } catch {}
 })

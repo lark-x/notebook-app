@@ -52,6 +52,7 @@ async function onAccept() {
   if (!result.value || !notesStore.currentNoteId) return
   const html = result.value.split('\n').map(l => l || '<br>').join('<br>')
   await notesStore.updateNote(notesStore.currentNoteId, { content: html })
+  notesStore.lastAcceptedContent = html
   await notesStore.fetchNotes(); result.value = null
 }
 

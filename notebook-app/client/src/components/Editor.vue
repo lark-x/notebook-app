@@ -53,6 +53,14 @@ watch(() => notesStore.currentNoteId, (id) => {
   nextTick(() => { if (contentRef.value) { contentRef.value.innerHTML = n.content || ''; notesStore.updateWordCount(stripHtml(n.content || '')) } })
 })
 
+// AI 采纳结果后直接更新编辑器 DOM
+watch(() => notesStore.lastAcceptedContent, (content) => {
+  if (content && contentRef.value) {
+    contentRef.value.innerHTML = content
+    notesStore.updateWordCount(stripHtml(content))
+  }
+})
+
 function onTitleInput(e) { noteTitle.value = e.target.value; notesStore.scheduleSave({ title: noteTitle.value, content: contentRef.value?.innerHTML || '' }) }
 function onContentInput() { const h = contentRef.value?.innerHTML || ''; notesStore.updateWordCount(stripHtml(h)); notesStore.scheduleSave({ title: noteTitle.value, content: h }) }
 function exec(cmd, val) { document.execCommand(cmd, false, val); contentRef.value?.focus() }

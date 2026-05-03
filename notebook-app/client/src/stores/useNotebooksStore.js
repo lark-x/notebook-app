@@ -5,6 +5,7 @@ import { apiRequest } from '../utils/api.js'
 export const useNotebooksStore = defineStore('notebooks', () => {
   const notebooks = ref([])
   const currentNotebookId = ref('all')
+  const expandedNotebookIds = ref(new Set())
 
   async function loadNotebooks() {
     try { notebooks.value = await apiRequest('GET', '/notebooks') } catch (e) { console.warn('加载笔记本失败:', e.message) }
@@ -29,15 +30,34 @@ export const useNotebooksStore = defineStore('notebooks', () => {
   async function deleteNotebook(id) {
     try { await apiRequest('DELETE', `/notebooks/${id}`) } catch (e) { console.warn('删除失败:', e.message) }
     notebooks.value = notebooks.value.filter(n => n.id !== id)
+    expandedNotebookIds.value.delete(id)
     if (currentNotebookId.value === id) currentNotebookId.value = 'all'
   }
 
-  function selectNotebook(id) { currentNotebookId.value = id }
+  function selectNotebook(id) {
+    currentNotebookId.value = id
+    if (id !== 'all' && !expandedNotebookIds.value.has(id)) {
+      expandedNotebookIds.value.add(id)
+    }
+  }
+
+  function toggleNotebookExpand(id, event) {
+    event.stopPropagation()
+    if (expandedNotebookIds.value.has(id)) {
+      expandedNotebookIds.value.delete(id)
+    } else {
+      expandedNotebookIds.value.add(id)
+    }
+  }
 
   function getCurrentNotebookName() {
     if (currentNotebookId.value === 'all') return '全部笔记'
     return notebooks.value.find(n => n.id === currentNotebookId.value)?.name || '笔记'
   }
 
-  return { notebooks, currentNotebookId, loadNotebooks, createNotebook, renameNotebook, deleteNotebook, selectNotebook, getCurrentNotebookName }
+  return {
+    notebooks, currentNotebookId, expandedNotebookIds,
+    loadNotebooks, createNotebook, renameNotebook, deleteNotebook,
+    selectNotebook, toggleNotebookExpand, getCurrentNotebookName,
+  }
 })

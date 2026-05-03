@@ -6,6 +6,7 @@ import { useMobileStore } from './useMobileStore.js'
 
 export const useNotesStore = defineStore('notes', () => {
   const notes = ref([])
+  const sidebarNotes = ref([])
   const currentNoteId = ref(null)
   const searchQuery = ref('')
   const currentPage = ref(1)
@@ -14,6 +15,7 @@ export const useNotesStore = defineStore('notes', () => {
   const totalPages = ref(0)
   const lastSavedText = ref('')
   const wordCount = ref(0)
+  const lastAcceptedContent = ref(null)
   let saveTimer = null
 
   async function fetchNotes() {
@@ -26,6 +28,13 @@ export const useNotesStore = defineStore('notes', () => {
       notes.value = r.notes; totalNotes.value = r.total; currentPage.value = r.page
       totalPages.value = Math.max(1, Math.ceil(r.total / pageSize.value))
     } catch (e) { notes.value = []; totalNotes.value = 0 }
+  }
+
+  async function fetchSidebarNotes() {
+    try {
+      const r = await apiRequest('GET', '/notes?pageSize=9999')
+      sidebarNotes.value = r.notes
+    } catch { sidebarNotes.value = [] }
   }
 
   async function resetAndFetch() { currentPage.value = 1; await fetchNotes() }
@@ -47,7 +56,7 @@ export const useNotesStore = defineStore('notes', () => {
     const nbId = nb.currentNotebookId === 'all' ? 'default' : nb.currentNotebookId
     try {
       const c = await apiRequest('POST', '/notes', { notebookId: nbId, title: '', content: '', tags: [] })
-      currentPage.value = 1; await fetchNotes(); currentNoteId.value = c.id; return c
+      currentPage.value = 1; await fetchNotes(); await fetchSidebarNotes(); currentNoteId.value = c.id; return c
     } catch (e) { return null }
   }
 
@@ -56,6 +65,8 @@ export const useNotesStore = defineStore('notes', () => {
       await apiRequest('PUT', `/notes/${id}`, updates)
       const n = notes.value.find(x => x.id === id)
       if (n) { Object.assign(n, updates); n.updatedAt = Date.now() }
+      const sn = sidebarNotes.value.find(x => x.id === id)
+      if (sn) { Object.assign(sn, updates); sn.updatedAt = Date.now() }
       return true
     } catch (e) { return false }
   }
@@ -63,7 +74,7 @@ export const useNotesStore = defineStore('notes', () => {
   async function deleteCurrentNote() {
     if (!currentNoteId.value) return
     try { await apiRequest('DELETE', `/notes/${currentNoteId.value}`) } catch (e) {}
-    currentNoteId.value = null; await fetchNotes()
+    currentNoteId.value = null; await fetchNotes(); await fetchSidebarNotes()
   }
 
   function scheduleSave(data) {
@@ -79,9 +90,9 @@ export const useNotesStore = defineStore('notes', () => {
   function updateWordCount(text) { wordCount.value = text.length }
 
   return {
-    notes, currentNoteId, searchQuery, currentPage, pageSize, totalNotes, totalPages,
-    lastSavedText, wordCount,
-    fetchNotes, resetAndFetch, goToPage, selectNote, createNote, updateNote,
+    notes, sidebarNotes, currentNoteId, searchQuery, currentPage, pageSize, totalNotes, totalPages,
+    lastSavedText, wordCount, lastAcceptedContent,
+    fetchNotes, fetchSidebarNotes, resetAndFetch, goToPage, selectNote, createNote, updateNote,
     deleteCurrentNote, scheduleSave, updateWordCount,
   }
 })
