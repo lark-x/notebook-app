@@ -16,7 +16,7 @@
           <button class="diff-btn diff-reject" @click="rejectDiff">✕ 放弃</button>
         </div>
       </div>
-      <div class="version-timeline" v-if="versionStore.versions.length > 1">
+      <div class="version-timeline" v-if="versionStore.versions.length > 0">
         <div class="version-track">
           <div v-for="(v, i) in versionStore.versions" :key="v.id" class="version-dot" :class="{ active: i === versionStore.currentVersionIndex, ai: v.type === 'ai' }" :title="v.label" @click="onRestoreVersion(i)">
             <span class="version-icon">{{ v.type === 'original' ? '📄' : '✨' }}</span>
@@ -76,7 +76,7 @@ watch(() => notesStore.currentNoteId, async (id) => {
   updateWordCount(n.content || '')
   showDiff.value = false
   pendingAiContent.value = ''
-  await versionStore.loadVersions(id)
+  await versionStore.loadVersions(id, n.content || '')
 })
 
 // AI 预览
