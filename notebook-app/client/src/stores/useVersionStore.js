@@ -6,9 +6,19 @@ export const useVersionStore = defineStore('versions', () => {
   const versions = ref([])
   const currentVersionIndex = ref(-1)
 
-  async function loadVersions(noteId) {
+  async function loadVersions(noteId, currentContent) {
     try {
       versions.value = await apiRequest('GET', `/notes/${noteId}/versions`)
+      // 旧笔记没有初始版本，自动补充
+      if (versions.value.length === 0 && currentContent) {
+        await apiRequest('POST', `/notes/${noteId}/versions`, {
+          content: currentContent,
+          type: 'original',
+          aiType: '',
+          label: '原文',
+        })
+        versions.value = await apiRequest('GET', `/notes/${noteId}/versions`)
+      }
       currentVersionIndex.value = versions.value.length > 0 ? versions.value.length - 1 : -1
     } catch { versions.value = []; currentVersionIndex.value = -1 }
   }
