@@ -30,6 +30,7 @@ import { ref, computed } from 'vue'
 import { useAiStore, AI_TRANSFORM_TYPES } from '../../stores/useAiStore.js'
 import { useNotesStore } from '../../stores/useNotesStore.js'
 import { stripHtml } from '../../utils/helpers.js'
+import '../ai.css'
 
 const ai = useAiStore()
 const notesStore = useNotesStore()
