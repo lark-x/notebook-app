@@ -28,11 +28,30 @@ db.exec(`
     key TEXT PRIMARY KEY,
     value TEXT
   );
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    role TEXT DEFAULT 'user',
+    created_at INTEGER DEFAULT (strftime('%s','now') * 1000)
+  );
+  CREATE TABLE IF NOT EXISTS ai_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
 `);
 
+// Seed default data
 const nbCount = db.prepare('SELECT COUNT(*) as c FROM notebooks').get();
 if (nbCount.c === 0) {
   db.prepare('INSERT INTO notebooks (id, name, icon) VALUES (?, ?, ?)').run('default', '默认笔记本', '📓');
+}
+
+// Seed admin user if no users exist
+const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get();
+if (userCount.c === 0) {
+  const { hashPassword } = require('./auth');
+  db.prepare('INSERT INTO users (id, username, password, role) VALUES (?, ?, ?, ?)').run('admin', 'admin', hashPassword('lark1234'), 'admin');
 }
 
 function genId() {
@@ -54,6 +73,13 @@ function getSettings() {
   return s;
 }
 
+function getAiSettings() {
+  const rows = db.prepare('SELECT key, value FROM ai_settings').all();
+  const s = {};
+  for (const r of rows) { s[r.key] = r.value || ''; }
+  return s;
+}
+
 const stmts = {
   getAllNotebooks: db.prepare('SELECT * FROM notebooks ORDER BY created_at'),
   getNotebook: db.prepare('SELECT * FROM notebooks WHERE id = ?'),
@@ -67,6 +93,16 @@ const stmts = {
   deleteNote: db.prepare('DELETE FROM notes WHERE id = ?'),
   deleteNotesByNotebook: db.prepare('DELETE FROM notes WHERE notebook_id = ?'),
   upsertSetting: db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)'),
+  // Users
+  getAllUsers: db.prepare('SELECT id, username, role, created_at FROM users ORDER BY created_at'),
+  getUser: db.prepare('SELECT * FROM users WHERE id = ?'),
+  getUserByUsername: db.prepare('SELECT * FROM users WHERE username = ?'),
+  insertUser: db.prepare('INSERT INTO users (id, username, password, role) VALUES (?, ?, ?, ?)'),
+  updateUser: db.prepare('UPDATE users SET username = ?, role = ? WHERE id = ?'),
+  updateUserPassword: db.prepare('UPDATE users SET password = ? WHERE id = ?'),
+  deleteUser: db.prepare('DELETE FROM users WHERE id = ?'),
+  // AI Settings
+  upsertAiSetting: db.prepare('INSERT OR REPLACE INTO ai_settings (key, value) VALUES (?, ?)'),
 };
 
-module.exports = { db, genId, rowToNote, rowToNotebook, getSettings, stmts };
+module.exports = { db, genId, rowToNote, rowToNotebook, getSettings, getAiSettings, stmts };

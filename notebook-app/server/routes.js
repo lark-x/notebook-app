@@ -1,6 +1,22 @@
 const express = require('express');
 const { db, genId, rowToNote, rowToNotebook, getSettings, stmts } = require('./db');
+const { verifyPassword, generateToken, authMiddleware, adminMiddleware } = require('./auth');
 const router = express.Router();
+
+// === 认证 ===
+router.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: '请输入用户名和密码' });
+  const user = stmts.getUserByUsername.get(username);
+  if (!user) return res.status(401).json({ error: '用户名或密码错误' });
+  if (!verifyPassword(password, user.password)) return res.status(401).json({ error: '用户名或密码错误' });
+  const token = generateToken({ id: user.id, username: user.username, role: user.role });
+  res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+});
+
+router.get('/me', authMiddleware, (req, res) => {
+  res.json({ user: { id: req.user.id, username: req.user.username, role: req.user.role } });
+});
 
 // === 全量数据 ===
 router.get('/data', (req, res) => {
@@ -105,6 +121,62 @@ router.delete('/notes/:id', (req, res) => {
   const note = stmts.getNote.get(req.params.id);
   if (!note) return res.status(404).json({ error: 'Not found' });
   stmts.deleteNote.run(req.params.id);
+  res.json({ success: true });
+});
+
+// === 用户管理 (admin only) ===
+router.get('/users', authMiddleware, adminMiddleware, (req, res) => {
+  res.json(stmts.getAllUsers.all());
+});
+
+router.post('/users', authMiddleware, adminMiddleware, (req, res) => {
+  const { username, password, role } = req.body;
+  if (!username?.trim()) return res.status(400).json({ error: '请输入用户名' });
+  if (!password || password.length < 6) return res.status(400).json({ error: '密码至少6位' });
+  if (stmts.getUserByUsername.get(username.trim())) return res.status(409).json({ error: '用户名已存在' });
+  const { hashPassword } = require('./auth');
+  const id = genId();
+  stmts.insertUser.run(id, username.trim(), hashPassword(password), role || 'user');
+  res.json({ id, username: username.trim(), role: role || 'user' });
+});
+
+router.put('/users/:id', authMiddleware, adminMiddleware, (req, res) => {
+  const user = stmts.getUser.get(req.params.id);
+  if (!user) return res.status(404).json({ error: '用户不存在' });
+  const { username, role, password } = req.body;
+  if (username && username !== user.username && stmts.getUserByUsername.get(username)) return res.status(409).json({ error: '用户名已存在' });
+  if (password) {
+    const { hashPassword } = require('./auth');
+    stmts.updateUserPassword.run(hashPassword(password), req.params.id);
+  }
+  stmts.updateUser.run(username || user.username, role || user.role, req.params.id);
+  res.json({ id: req.params.id, username: username || user.username, role: role || user.role });
+});
+
+router.delete('/users/:id', authMiddleware, adminMiddleware, (req, res) => {
+  if (req.params.id === req.user.id) return res.status(400).json({ error: '不能删除自己的账号' });
+  const user = stmts.getUser.get(req.params.id);
+  if (!user) return res.status(404).json({ error: '用户不存在' });
+  stmts.deleteUser.run(req.params.id);
+  res.json({ success: true });
+});
+
+// === AI 设置 ===
+router.get('/ai-settings', authMiddleware, (req, res) => {
+  const { getAiSettings } = require('./db');
+  const s = getAiSettings();
+  // 对非 admin 隐藏完整 key
+  if (req.user.role !== 'admin' && s.apiKey) {
+    s.apiKey = '***' + s.apiKey.slice(-4);
+  }
+  res.json(s);
+});
+
+router.put('/ai-settings', authMiddleware, adminMiddleware, (req, res) => {
+  const allowed = ['apiKey', 'baseUrl', 'model'];
+  for (const k of allowed) {
+    if (req.body[k] !== undefined) stmts.upsertAiSetting.run(k, req.body[k]);
+  }
   res.json({ success: true });
 });
 

@@ -23,10 +23,12 @@ async function chatCompletion({ apiKey, apiBase, model, systemPrompt, userConten
 }
 
 function getConfig() {
+  const { getAiSettings } = require('../../db');
+  const dbConfig = getAiSettings();
   return {
-    apiKey: process.env.AI_API_KEY || '',
-    apiBase: (process.env.AI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, ''),
-    model: process.env.AI_MODEL || 'gpt-4o-mini',
+    apiKey: dbConfig.apiKey || process.env.AI_API_KEY || '',
+    apiBase: (dbConfig.baseUrl || process.env.AI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, ''),
+    model: dbConfig.model || process.env.AI_MODEL || 'gpt-4o-mini',
   };
 }
 

@@ -25,16 +25,16 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '../stores/useAuthStore.js'
 const router = useRouter(), route = useRoute()
+const auth = useAuthStore()
 const username = ref(''), password = ref(''), errorMsg = ref(''), loading = ref(false)
-function onLogin() {
+async function onLogin() {
   errorMsg.value = ''; loading.value = true
-  setTimeout(() => {
-    if (username.value === 'admin' && password.value === 'lark1234') {
-      localStorage.setItem('noteflow_auth', 'true'); localStorage.setItem('noteflow_user', username.value)
-      router.push(route.query.redirect || '/portal')
-    } else { errorMsg.value = '用户名或密码错误'; loading.value = false }
-  }, 500)
+  try {
+    await auth.login(username.value, password.value)
+    router.push(route.query.redirect || '/portal')
+  } catch (e) { errorMsg.value = e.message || '登录失败'; loading.value = false }
 }
 </script>
 
