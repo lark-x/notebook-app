@@ -9,8 +9,9 @@ export const useVersionStore = defineStore('versions', () => {
   async function loadVersions(noteId, currentContent) {
     try {
       versions.value = await apiRequest('GET', `/notes/${noteId}/versions`)
-      // 旧笔记没有初始版本，自动补充
-      if (versions.value.length === 0 && currentContent) {
+      // 旧笔记没有"原文"版本，自动补充到最前面
+      const hasOriginal = versions.value.some(v => v.type === 'original')
+      if (!hasOriginal && currentContent) {
         await apiRequest('POST', `/notes/${noteId}/versions`, {
           content: currentContent,
           type: 'original',
@@ -19,6 +20,12 @@ export const useVersionStore = defineStore('versions', () => {
         })
         versions.value = await apiRequest('GET', `/notes/${noteId}/versions`)
       }
+      // 确保"原文"排在最前
+      versions.value.sort((a, b) => {
+        if (a.type === 'original' && b.type !== 'original') return -1
+        if (a.type !== 'original' && b.type === 'original') return 1
+        return a.timestamp - b.timestamp
+      })
       currentVersionIndex.value = versions.value.length > 0 ? versions.value.length - 1 : -1
     } catch { versions.value = []; currentVersionIndex.value = -1 }
   }
