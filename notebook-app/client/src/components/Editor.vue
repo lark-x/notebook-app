@@ -17,7 +17,7 @@
           <button class="toolbar-btn" @click="exec('insertHorizontalRule')">—</button>
           <span class="toolbar-sep"></span>
           <button class="toolbar-btn" @click="addTag">🏷️</button>
-          <button class="toolbar-btn toolbar-btn-ai" :class="{ active: aiStore.showAiPanel }" @click="aiStore.toggleAiPanel()">✨</button>
+          <button class="toolbar-btn toolbar-btn-ai" :class="{ active: aiStore.showAiPanel }" @click.stop="aiStore.toggleAiPanel()">✨</button>
           <button class="toolbar-btn" @click="delNote">🗑️</button>
         </div>
       </div>
