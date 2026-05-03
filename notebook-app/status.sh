@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 # ============================================================
 # NoteFlow 状态检查脚本
@@ -8,8 +8,8 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-if [[ -f deploy.config ]]; then
-  source deploy.config
+if [ -f deploy.config ]; then
+  . ./deploy.config
 fi
 
 PORT="${PORT:-3000}"
@@ -24,7 +24,7 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
 fi
 
 # 进程状态
-if [[ -f "$PID_FILE" ]]; then
+if [ -f "$PID_FILE" ]; then
   pid=$(cat "$PID_FILE")
   if kill -0 "$pid" 2>/dev/null; then
     echo "状态: 运行中 (PID: $pid)"
@@ -40,7 +40,7 @@ if [[ -f "$PID_FILE" ]]; then
 else
   # 检查进程
   port_pid=$(ps aux 2>/dev/null | grep "server/index.js" | grep -v grep | awk '{print $2}' | head -1 || true)
-  if [[ -n "$port_pid" ]]; then
+  if [ -n "$port_pid" ]; then
     echo "状态: 运行中 (PID: $port_pid，无 PID 文件)"
   else
     echo "状态: 未运行"

@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 # ============================================================
 # NoteFlow 重启脚本
@@ -14,13 +14,13 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 log "========== NoteFlow 重启 =========="
 
 # 停止
-if [[ -f stop.sh ]]; then
-  bash stop.sh
+if [ -f stop.sh ]; then
+  sh stop.sh
 fi
 
 # 部署
-if [[ -f deploy.sh ]]; then
-  bash deploy.sh "$@"
+if [ -f deploy.sh ]; then
+  sh deploy.sh "$@"
 else
   log "ERROR: 未找到 deploy.sh"
   exit 1

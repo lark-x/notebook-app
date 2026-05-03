@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 # ============================================================
 # NoteFlow 部署脚本
@@ -10,12 +10,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # 加载配置
-if [[ -f deploy.config ]]; then
-  source deploy.config
+if [ -f deploy.config ]; then
+  . ./deploy.config
 fi
 
 # 命令行参数覆盖
-while [[ $# -gt 0 ]]; do
+while [ $# -gt 0 ]; do
   case "$1" in
     --branch)   BRANCH="$2"; shift 2 ;;
     --no-pull)  GIT_PULL=false; shift ;;
@@ -47,12 +47,12 @@ check_deps() {
   command -v git >/dev/null 2>&1 || err "未找到 git"
   local node_ver
   node_ver=$("$NODE_BIN" -v | sed 's/v//' | cut -d. -f1)
-  [[ "$node_ver" -ge 18 ]] || err "需要 Node.js >= 18，当前: $("$NODE_BIN" -v)"
+  [ "$node_ver" -ge 18 ] || err "需要 Node.js >= 18，当前: $("$NODE_BIN" -v)"
 }
 
 # 停止已有进程
 stop_existing() {
-  if [[ -f "$PID_FILE" ]]; then
+  if [ -f "$PID_FILE" ]; then
     local pid
     pid=$(cat "$PID_FILE")
     if kill -0 "$pid" 2>/dev/null; then
@@ -75,7 +75,7 @@ stop_existing() {
   # 兜底：杀掉 server/index.js 残留进程
   local server_pids
   server_pids=$(ps aux 2>/dev/null | grep "server/index.js" | grep -v grep | awk '{print $2}' || true)
-  if [[ -n "$server_pids" ]]; then
+  if [ -n "$server_pids" ]; then
     log "清理残留 server 进程 ($server_pids)..."
     for p in $server_pids; do
       kill "$p" 2>/dev/null || true
@@ -86,7 +86,7 @@ stop_existing() {
 
 # Git 操作
 do_git() {
-  if [[ "$GIT_PULL" != "true" ]]; then
+  if [ "$GIT_PULL" != "true" ]; then
     log "跳过 git 拉取"
     return
   fi
@@ -95,7 +95,7 @@ do_git() {
   current_branch=$(git rev-parse --abbrev-ref HEAD)
   log "当前分支: $current_branch"
 
-  if [[ -n "$BRANCH" && "$BRANCH" != "$current_branch" ]]; then
+  if [ -n "$BRANCH" ] && [ "$BRANCH" != "$current_branch" ]; then
     log "切换分支: $current_branch → $BRANCH"
     # 检查是否有未提交的更改
     if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
@@ -120,19 +120,19 @@ do_git() {
 
 # 安装依赖
 do_install() {
-  if [[ "$INSTALL_DEPS" != "true" ]]; then
+  if [ "$INSTALL_DEPS" != "true" ]; then
     log "跳过依赖安装"
     return
   fi
 
   # 服务端依赖
-  if [[ -f package.json ]]; then
+  if [ -f package.json ]; then
     log "安装服务端依赖..."
     npm install --production 2>&1 | tail -3
   fi
 
   # 客户端依赖
-  if [[ -f client/package.json ]]; then
+  if [ -f client/package.json ]; then
     log "安装客户端依赖..."
     (cd client && npm install 2>&1 | tail -3)
   fi
@@ -140,7 +140,7 @@ do_install() {
 
 # 构建客户端
 do_build() {
-  if [[ -f client/package.json ]]; then
+  if [ -f client/package.json ]; then
     log "构建客户端..."
     (cd client && ./node_modules/.bin/vite build 2>&1 | tail -5)
     log "构建完成"
@@ -154,8 +154,8 @@ do_start() {
   log "启动服务 (端口: $PORT)..."
 
   # 导入 .env（如果存在）
-  if [[ -f .env ]]; then
-    set -a; source .env; set +a
+  if [ -f .env ]; then
+    set -a; . ./.env; set +a
   fi
 
   PORT="$PORT" "$NODE_BIN" server/index.js > "$LOG_FILE" 2>&1 &
