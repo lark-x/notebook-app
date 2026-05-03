@@ -1,62 +1,44 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
+import { apiRequest } from '../utils/api.js'
 
 export const useVersionStore = defineStore('versions', () => {
-  // versions per note: { [noteId]: [{ id, content, type, label, timestamp }] }
-  const versionsMap = ref({})
+  const versions = ref([])
   const currentVersionIndex = ref(-1)
 
-  function getVersions(noteId) {
-    return versionsMap.value[noteId] || []
+  async function loadVersions(noteId) {
+    try {
+      versions.value = await apiRequest('GET', `/notes/${noteId}/versions`)
+      currentVersionIndex.value = versions.value.length > 0 ? versions.value.length - 1 : -1
+    } catch { versions.value = []; currentVersionIndex.value = -1 }
   }
 
-  function initNote(noteId, content) {
-    if (versionsMap.value[noteId]?.length) return
-    versionsMap.value[noteId] = [{
-      id: 'v0',
-      content: content || '',
-      type: 'original',
-      label: '原文',
-      timestamp: Date.now(),
-    }]
-    currentVersionIndex.value = 0
+  async function addVersion(noteId, content, aiType, label) {
+    const typeNames = { style: '风格转换', expand: '内容扩展', summary: '摘要提炼' }
+    try {
+      await apiRequest('POST', `/notes/${noteId}/versions`, {
+        content,
+        type: 'ai',
+        aiType,
+        label: label || typeNames[aiType] || 'AI',
+      })
+      await loadVersions(noteId)
+    } catch (e) { console.warn('保存版本失败:', e.message) }
   }
 
-  function addVersion(noteId, content, aiType, label) {
-    if (!versionsMap.value[noteId]) versionsMap.value[noteId] = []
-    const versions = versionsMap.value[noteId]
-    const version = {
-      id: `v${versions.length}`,
-      content,
-      type: 'ai',
-      aiType,
-      label: label || `AI ${aiType}`,
-      timestamp: Date.now(),
-    }
-    versions.push(version)
-    currentVersionIndex.value = versions.length - 1
-    return version
-  }
-
-  function restoreVersion(noteId, index) {
-    const versions = versionsMap.value[noteId]
-    if (!versions || index < 0 || index >= versions.length) return null
+  function restoreVersion(index) {
+    if (index < 0 || index >= versions.value.length) return null
     currentVersionIndex.value = index
-    return versions[index]
+    return versions.value[index]
   }
 
-  function clearNote(noteId) {
-    delete versionsMap.value[noteId]
+  function clear() {
+    versions.value = []
     currentVersionIndex.value = -1
   }
 
-  const currentVersion = computed(() => {
-    const notesStore = versionsMap.value // just for reactivity
-    return null
-  })
-
   return {
-    versionsMap, currentVersionIndex,
-    getVersions, initNote, addVersion, restoreVersion, clearNote,
+    versions, currentVersionIndex,
+    loadVersions, addVersion, restoreVersion, clear,
   }
 })
