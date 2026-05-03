@@ -100,8 +100,11 @@ watch(editorContent, (val) => {
 function acceptDiff() {
   if (!pendingAiContent.value || !notesStore.currentNoteId) return
   const content = pendingAiContent.value
-  // 保存版本到 DB
-  versionStore.addVersion(notesStore.currentNoteId, content, aiStore.aiState.currentType)
+  // 获取当前笔记的原始内容（此时 notesStore 还未更新）
+  const note = notesStore.notes.find(x => x.id === notesStore.currentNoteId)
+  const originalContent = note?.content || ''
+  // 保存 AI 版本到 DB，并传入原文用于自动补充"原文"版本
+  versionStore.addVersion(notesStore.currentNoteId, content, aiStore.aiState.currentType, '', originalContent)
   // 更新笔记
   notesStore.updateNote(notesStore.currentNoteId, { content })
   notesStore.fetchNotes()

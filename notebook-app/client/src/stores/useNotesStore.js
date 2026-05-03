@@ -53,10 +53,16 @@ export const useNotesStore = defineStore('notes', () => {
 
   async function createNote() {
     const nb = useNotebooksStore()
-    const nbId = nb.currentNotebookId === 'all' ? 'default' : nb.currentNotebookId
+    let nbId = nb.currentNotebookId
+    if (nbId === 'all') {
+      // 使用第一个可用笔记本，而非硬编码 'default'
+      nbId = nb.notebooks.length > 0 ? nb.notebooks[0].id : 'default'
+    }
     try {
       const c = await apiRequest('POST', '/notes', { notebookId: nbId, title: '', content: '', tags: [] })
-      currentPage.value = 1; await fetchNotes(); await fetchSidebarNotes(); currentNoteId.value = c.id; return c
+      await fetchSidebarNotes()
+      currentNoteId.value = c.id
+      return c
     } catch (e) { return null }
   }
 
