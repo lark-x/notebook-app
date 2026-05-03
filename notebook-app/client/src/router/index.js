@@ -4,6 +4,8 @@ const routes = [
   { path: '/login', name: 'Login', component: () => import('../views/LoginView.vue'), meta: { requiresAuth: false } },
   { path: '/portal', name: 'Portal', component: () => import('../views/PortalView.vue'), meta: { requiresAuth: true } },
   { path: '/app/noteflow', name: 'NoteFlow', component: () => import('../views/NoteFlowApp.vue'), meta: { requiresAuth: true } },
+  { path: '/settings/ai', name: 'AiSettings', component: () => import('../views/AiSettingsView.vue'), meta: { requiresAuth: true } },
+  { path: '/admin/users', name: 'UserManage', component: () => import('../views/UserManageView.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
   { path: '/', redirect: '/portal' },
   { path: '/:pathMatch(.*)*', redirect: '/portal' },
 ]

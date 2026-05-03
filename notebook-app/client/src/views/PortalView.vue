@@ -2,7 +2,7 @@
   <div class="portal-page">
     <header class="portal-header">
       <div class="portal-header-left"><span class="portal-logo">🚀</span><h1>应用平台</h1></div>
-      <div class="portal-header-right"><span class="portal-user">{{ currentUser }}</span><button class="portal-logout-btn" @click="onLogout">退出</button></div>
+      <div class="portal-header-right"><span class="portal-user">{{ auth.user?.username || currentUser }}</span><button class="portal-logout-btn" @click="onLogout">退出</button></div>
     </header>
     <main class="portal-main">
       <h2 class="portal-title">我的应用</h2>
@@ -13,6 +13,19 @@
           <div class="app-card-arrow">→</div>
         </div>
       </div>
+      <h2 class="portal-title" style="margin-top:32px">系统设置</h2>
+      <div class="app-grid">
+        <div class="app-card" @click="router.push('/settings/ai')">
+          <div class="app-card-icon">🤖</div>
+          <div class="app-card-info"><h3>AI 配置</h3><p>设置 AI API 密钥、模型和接口地址</p></div>
+          <div class="app-card-arrow">→</div>
+        </div>
+        <div v-if="auth.isAdmin" class="app-card" @click="router.push('/admin/users')">
+          <div class="app-card-icon">👥</div>
+          <div class="app-card-info"><h3>用户管理</h3><p>新增、修改、删除用户账号</p></div>
+          <div class="app-card-arrow">→</div>
+        </div>
+      </div>
     </main>
   </div>
 </template>
@@ -20,13 +33,15 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import { apps } from '../apps.config.js'
+import { useAuthStore } from '../stores/useAuthStore.js'
 const router = useRouter()
+const auth = useAuthStore()
 const currentUser = localStorage.getItem('noteflow_user') || '用户'
-function onLogout() { localStorage.removeItem('noteflow_auth'); localStorage.removeItem('noteflow_user'); router.push('/login') }
+function onLogout() { auth.logout(); router.push('/login') }
 </script>
 
 <style scoped>
-.portal-page { min-height:100vh; background:var(--bg); }
+.portal-page { min-height:100vh; background:var(--bg); overflow-y:auto; }
 .portal-header { display:flex; align-items:center; justify-content:space-between; padding:16px 32px; padding-top:calc(16px + env(safe-area-inset-top)); background:var(--bg-sidebar); color:var(--text-sidebar); }
 .portal-header-left { display:flex; align-items:center; gap:10px; }
 .portal-logo { font-size:24px; }
