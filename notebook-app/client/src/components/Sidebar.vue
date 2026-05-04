@@ -13,7 +13,7 @@
       </div>
       <div v-for="nb in nbStore.notebooks" :key="nb.id">
         <div class="notebook-item" :class="{ active: nbStore.currentNotebookId === nb.id }" @click="nbStore.selectNotebook(nb.id)">
-          <span class="expand-toggle" @click="nbStore.toggleNotebookExpand(nb.id, $event)" :class="{ expanded: nbStore.expandedNotebookIds.has(nb.id) }">▸</span>
+          <span class="expand-toggle" @click="nbStore.toggleNotebookExpand(nb.id, $event)" :class="{ expanded: nbStore.expandedNotebookIds[nb.id] }">▸</span>
           <span class="icon">{{ nb.icon }}</span><span class="name">{{ nb.name }}</span>
           <span class="count">{{ notesStore.sidebarNotes.filter(n => n.notebookId === nb.id).length }}</span>
           <span class="actions">
@@ -21,7 +21,7 @@
             <button @click.stop="onDelete(nb)">✕</button>
           </span>
         </div>
-        <div v-if="nbStore.expandedNotebookIds.has(nb.id)" class="notebook-notes">
+        <div v-if="nbStore.expandedNotebookIds[nb.id]" class="notebook-notes">
           <div v-for="note in notesStore.sidebarNotes.filter(n => n.notebookId === nb.id)" :key="note.id" class="sub-note-item" :class="{ active: note.id === notesStore.currentNoteId }" @click="selectAndLoad(note.id)">
             <span class="sub-note-title">{{ note.title || '无标题' }}</span>
           </div>

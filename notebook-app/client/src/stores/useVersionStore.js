@@ -9,16 +9,21 @@ export const useVersionStore = defineStore('versions', () => {
   async function loadVersions(noteId, currentContent) {
     try {
       versions.value = await apiRequest('GET', `/notes/${noteId}/versions`)
-      // 旧笔记没有"原文"版本，自动补充到最前面
-      const hasOriginal = versions.value.some(v => v.type === 'original')
-      if (!hasOriginal && currentContent) {
-        await apiRequest('POST', `/notes/${noteId}/versions`, {
-          content: currentContent,
-          type: 'original',
-          aiType: '',
-          label: '原文',
-        })
-        versions.value = await apiRequest('GET', `/notes/${noteId}/versions`)
+      const originalIdx = versions.value.findIndex(v => v.type === 'original')
+      if (originalIdx === -1) {
+        // 没有"原文"版本，自动补充
+        if (currentContent) {
+          await apiRequest('POST', `/notes/${noteId}/versions`, {
+            content: currentContent,
+            type: 'original',
+            aiType: '',
+            label: '原文',
+          })
+          versions.value = await apiRequest('GET', `/notes/${noteId}/versions`)
+        }
+      } else if (currentContent && !versions.value[originalIdx].content) {
+        // "原文"版本存在但内容为空，用当前内容补充
+        versions.value[originalIdx].content = currentContent
       }
       // 确保"原文"排在最前
       versions.value.sort((a, b) => {
@@ -30,7 +35,7 @@ export const useVersionStore = defineStore('versions', () => {
     } catch { versions.value = []; currentVersionIndex.value = -1 }
   }
 
-  async function addVersion(noteId, content, aiType, label) {
+  async function addVersion(noteId, content, aiType, label, originalContent) {
     const typeNames = { style: '风格转换', expand: '内容扩展', summary: '摘要提炼' }
     try {
       await apiRequest('POST', `/notes/${noteId}/versions`, {
@@ -39,7 +44,7 @@ export const useVersionStore = defineStore('versions', () => {
         aiType,
         label: label || typeNames[aiType] || 'AI',
       })
-      await loadVersions(noteId)
+      await loadVersions(noteId, originalContent || '')
     } catch (e) { console.warn('保存版本失败:', e.message) }
   }
 
